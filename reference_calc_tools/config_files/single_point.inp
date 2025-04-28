@@ -1,0 +1,253 @@
+@SET PATH_TO_COORD <INSERT:path_to_coord>
+@SET WAVE_CUTOFF <INSERT:wave_cutoff>
+@SET PROJECT_NAME <INSERT:project_name>
+@SET CONFIG_FILE_PATH <INSERT:config_file_path>
+
+
+
+&GLOBAL
+  PROJECT ${PROJECT_NAME}
+  PREFERRED_FFT_LIBRARY FFTW
+  FFTW_PLAN_TYPE MEASURE
+  PREFERRED_DIAG_LIBRARY ELPA
+  RUN_TYPE MD
+  PRINT_LEVEL LOW
+&END GLOBAL
+
+
+&FORCE_EVAL
+    &SUBSYS
+      &KIND H
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q1
+        POTENTIAL GTH-PBE-q1
+      &END KIND
+      &KIND Li
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q3
+        POTENTIAL GTH-PBE-q3
+      &END KIND
+      &KIND B
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q3
+        POTENTIAL GTH-PBE-q3
+      &END KIND
+      &KIND C
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q4
+        POTENTIAL GTH-PBE-q4
+      &END KIND
+      &KIND N
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q5
+        POTENTIAL GTH-PBE-q5
+      &END KIND
+      &KIND O
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q6
+        POTENTIAL GTH-PBE-q6
+      &END KIND
+      &KIND F
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q7
+        POTENTIAL GTH-PBE-q7
+      &END KIND
+      &KIND Na
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q9
+        POTENTIAL GTH-PBE-q9
+      &END KIND
+      &KIND Mg
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q10 ! or DZVP-MOLOPT-SR-GTH-q2
+        POTENTIAL GTH-PBE-q10 ! or GTH-PBE-q2
+      &END KIND
+      &KIND Al
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q3
+        POTENTIAL GTH-PBE-q3
+      &END KIND
+      &KIND Si
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q4
+        POTENTIAL GTH-PBE-q4
+      &END KIND
+      &KIND P
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q5
+        POTENTIAL GTH-PBE-q5
+      &END KIND
+      &KIND S
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q6
+        POTENTIAL GTH-PBE-q6
+      &END KIND
+      &KIND Cl
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q7
+        POTENTIAL GTH-PBE-q7
+      &END KIND
+      &KIND K
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q9
+        POTENTIAL GTH-PBE-q9
+      &END KIND
+      &KIND Ca
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q10
+        POTENTIAL GTH-PBE-q10
+      &END KIND
+      &KIND Ti
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q12
+        POTENTIAL GTH-PBE-q12
+      &END KIND
+      &KIND Fe
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q16
+        POTENTIAL GTH-PBE-q16
+      &END KIND
+      &KIND Ni
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q18
+        POTENTIAL GTH-PBE-q18
+      &END KIND
+      &KIND Cu
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q11
+        POTENTIAL GTH-PBE-q11
+      &END KIND
+      &KIND Zn
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q12
+        POTENTIAL GTH-PBE-q12
+      &END KIND
+      &KIND Se
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q6
+        POTENTIAL GTH-PBE-q6
+      &END KIND
+      &KIND Br
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q7
+        POTENTIAL GTH-PBE-q7
+      &END KIND
+      &KIND Mo
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q14
+        POTENTIAL GTH-PBE-q14
+      &END KIND
+      &KIND Ru
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q16
+        POTENTIAL GTH-PBE-q16
+      &END KIND
+      &KIND Pd
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q18
+        POTENTIAL GTH-PBE-q18
+      &END KIND
+      &KIND Ag
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q11
+        POTENTIAL GTH-PBE-q11
+      &END KIND
+      &KIND I
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q7
+        POTENTIAL GTH-PBE-q7
+      &END KIND
+      &KIND W
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q14
+        POTENTIAL GTH-PBE-q14
+      &END KIND
+      &KIND Pt
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q18
+        POTENTIAL GTH-PBE-q18
+      &END KIND
+      &KIND Au
+        BASIS_SET ORB DZVP-MOLOPT-SR-GTH-q11
+        POTENTIAL GTH-PBE-q11
+      &END KIND
+      &TOPOLOGY
+        COORD_FILE_FORMAT XYZ
+        COORD_FILE_NAME ${PATH_TO_COORD}
+        MULTIPLE_UNIT_CELL  1 1 1
+      &END TOPOLOGY
+      &CELL
+        A <INSERT:A_vector>
+        B <INSERT:B_vector>
+        C <INSERT:C_vector>
+      &END CELL
+    &END SUBSYS
+    &DFT
+      BASIS_SET_FILE_NAME ${CONFIG_FILE_PATH}/GTH_BASIS_SETS
+      BASIS_SET_FILE_NAME ${CONFIG_FILE_PATH}/BASIS_MOLOPT
+      POTENTIAL_FILE_NAME ${CONFIG_FILE_PATH}/POTENTIAL
+      SURFACE_DIPOLE_CORRECTION T
+      SURF_DIP_DIR Z
+      &XC
+         &VDW_POTENTIAL
+            POTENTIAL_TYPE PAIR_POTENTIAL
+            &PAIR_POTENTIAL 
+               TYPE DFTD3
+               R_CUTOFF 15.0
+               LONG_RANGE_CORRECTION TRUE
+               REFERENCE_FUNCTIONAL revPBE
+               PARAMETER_FILE_NAME ${CONFIG_FILE_PATH}/dftd3.dat
+            &END PAIR_POTENTIAL
+         &END VDW_POTENTIAL
+         &XC_GRID
+            XC_DERIV SPLINE2_SMOOTH
+         &END XC_GRID
+         &XC_FUNCTIONAL
+            &PBE
+               PARAMETRIZATION REVPBE
+            &END PBE
+         &END XC_FUNCTIONAL
+      &END XC
+      &QS
+         EPS_DEFAULT 1e-12
+         EPS_PGF_ORB 1e-14
+      &END QS
+      &SCF
+        SCF_GUESS ATOMIC
+        MAX_SCF 20 
+        EPS_SCF 5.0E-7 
+        &OT <INSERT:OT_true>
+          MINIMIZER DIIS
+          PRECONDITIONER FULL_ALL
+        &END OT
+        <INSERT:added_MOs>
+        &SMEAR <INSERT:smear_on>
+          METHOD FERMI_DIRAC
+          ELECTRONIC_TEMPERATURE [K] 300
+        &END SMEAR
+        &DIAGONALIZATION <INSERT:diagonalization>
+          ALGORITHM STANDARD
+        &END DIAGONALIZATION
+        &MIXING
+          METHOD BROYDEN_MIXING
+          ALPHA   0.4
+          BETA    0.5
+          NBROYDEN  8
+        &END 
+        &OUTER_SCF
+          MAX_SCF 20
+          EPS_SCF 5.0E-7
+        &END OUTER_SCF
+      &END SCF
+      &MGRID
+         CUTOFF ${WAVE_CUTOFF}
+         NGRIDS 5
+      &END MGRID
+    &END DFT
+&END FORCE_EVAL
+
+&MOTION                                                                                                                                                                                                 
+  &MD                                                                                                                                                                                                   
+    ENSEMBLE  NVE                                                                                                                                                                                       
+    STEPS 0                                                                                                                                                                                            
+    TIMESTEP     0.0010                                                                                                                                                                                 
+    TEMPERATURE    300                                                                                                                                                                                  
+  &END MD                                                                                                                                                                                               
+                                                                                                                                                                                                        
+  &PRINT                                                                                                                                                                                                
+    &TRAJECTORY  SILENT                                                                                                                                                                                 
+      FORMAT  XYZ                                                                                                                                                                                       
+      &EACH                                                                                                                                                                                             
+        MD  1                                                                                                                                                                                           
+      &END EACH                                                                                                                                                                                         
+    &END TRAJECTORY                                                                                                                                                                                     
+    &FORCES  SILENT                                                                                                                                                                                     
+      FORMAT  XYZ                                                                                                                                                                                       
+      &EACH                                                                                                                                                                                             
+        MD  1                                                                                                                                                                                           
+      &END EACH                                                                                                                                                                                         
+    &END FORCES                                                                                                                                                                                         
+    &VELOCITIES SILENT                                                                                                                                                                                  
+      FORMAT  XYZ                                                                                                                                                                                       
+      &EACH                                                                                                                                                                                             
+        MD 1                                                                                                                                                                                            
+      &END EACH                                                                                                                                                                                         
+    &END VELOCITIES                                                                                                                                                                                     
+    &RESTART  SILENT                                                                                                                                                                                    
+      ADD_LAST  NUMERIC                                                                                                                                                                                 
+      &EACH                                                                                                                                                                                             
+        MD  1                                                                                                                                                                                           
+      &END EACH                                                                                                                                                                                         
+    &END RESTART                                                                                                                                                                                        
+  &END PRINT                                                                                                                                                                                            
+&END MOTION

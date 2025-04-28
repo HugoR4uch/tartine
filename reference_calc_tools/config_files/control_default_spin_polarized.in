@@ -1,0 +1,31 @@
+#Physical settings
+  xc            revPBE
+  spin          collinear
+  relativistic  atomic_zora scalar
+  d3
+  default_initial_moment <INSERT:initial_moment>
+
+sc_iter_limit 80
+
+#Mixing settings
+  mixer              pulay
+  n_max_pulay        10
+  charge_mix_param   0.05
+
+#Smear settings
+  occupation_type gaussian 0.1
+
+#k-point grid
+   k_grid   1  1    1 
+
+#Efficiency and accuracy flags
+  use_dipole_correction
+
+  elsi_restart read_and_write 10
+
+#Output dipole
+compute_forces .true.
+final_forces_cleaned .true.
+
+
+

@@ -1,0 +1,41 @@
+# URL: https://cp2k-basis.pierrebeaujean.net/api/pseudopotentials/GTH-PBE/data?elements=Fe
+# BUILD: 06/08/2024 @ 14:19
+# FETCHED: 31/01/2025 @ 18:16
+# ---
+# Fe [10|4s6p6d]
+# SOURCE: https://github.com/cp2k/cp2k/raw/ac0226eb549c7ef1ea50d0597d545f29d4c8fc87/data/POTENTIAL_UZH#L1292
+Fe  GTH-PBE-q16 GTH-GGA-q16
+4 6 6 0
+      0.35995327   2     6.77089340    -0.19302364
+     3
+      0.27176718   2     0.57493732     7.91313537
+                                      -10.00782097
+      0.25503931   2    -7.89264568     7.69707832
+                                       -9.14331139
+      0.22321054   1   -12.41029472
+# Fe [18|2s6d]
+# SOURCE: https://github.com/cp2k/cp2k/raw/ac0226eb549c7ef1ea50d0597d545f29d4c8fc87/data/POTENTIAL_UZH#L1281
+Fe  GTH-PBE-q8 GTH-GGA-q8
+2 0 6 0
+      0.59578851   1     0.16043266
+     3
+      0.45708850   3     3.28795514    -1.01066081     0.78740541
+                                        2.67805610    -2.03777745
+                                                       3.28627320
+      0.63922887   2     1.54380725    -0.09985698
+                                        0.33708086
+      0.30621323   1    -9.14944579
+
+
+
+# URL: https://cp2k-basis.pierrebeaujean.net/api/pseudopotentials/GTH-PBE/data?elements=O
+# BUILD: 06/08/2024 @ 14:19
+# FETCHED: 31/01/2025 @ 18:22
+# ---
+# O [2|2s4p]
+# SOURCE: https://github.com/cp2k/cp2k/raw/ac0226eb549c7ef1ea50d0597d545f29d4c8fc87/data/POTENTIAL_UZH#L1037
+O  GTH-PBE-q6 GTH-GGA-q6
+2 4 0 0
+      0.24446328   2   -16.67548222     2.48908598
+     1
+      0.22097111   1    18.33446866
