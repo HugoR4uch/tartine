@@ -220,7 +220,12 @@ def find_COM_trajectory(input_trajectory):
 
 def find_top_layer_indices(substrate,num_layers):
     z_vals = substrate.positions[:,2]
-    top_layer_z_val_threshold = np.percentile(z_vals, 100*(1-1/num_layers))
+    
+    if num_layers == None:
+        top_layer_z_val_threshold = np.max(z_vals) - 0.1 # anything 0.1 A below top atom
+    else:
+        top_layer_z_val_threshold = np.percentile(z_vals, 100*(1-1/num_layers))
+    
     top_layer_indices = np.where(z_vals >= top_layer_z_val_threshold)[0]
     return top_layer_indices
 
