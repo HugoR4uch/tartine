@@ -10,30 +10,39 @@ import ase.data
 import time
 import os
 from . import water_analyser
+from mace.calculators import MACECalculator
+from ase.visualize.plot import plot_atoms
 
-
-
-def write_to_logfile(message):
-    with open('interface_builder_log.out', 'a') as file:
-        new_line = message
-        file.write(new_line + "\n")  # Write the line to the file
 
 
 def plot_atoms(atoms,rotation=('0x,0y,0z')):
-    from ase.visualize.plot import plot_atoms
-
+    
     fig, axes = plt.subplots(1, 2, figsize=(8, 8))  
-
     plot_atoms(atoms, ax=axes, rotation=('0x,0y,0z'))
 
 
 
-def interface_multi_builder(substrate_dir,water_thickness,intersubstrate_gap,water_substrate_gap,num_replicas=1,optimise_interface=True,logfile = True,check_physicality=True,enforce_physicality = False,freeze_whole_substrate=False):
+
+def monolayer_multi_builder(substrate_dir,
+                            contact_layer_info,
+                            intersubstrate_gap,
+                            water_substrate_gap,
+                            num_replicas=1,
+                            optimise_interfacial_water=True,
+                            ):
+    pass
+
+
+def bulk_interface_multi_builder(substrate_dir,
+                            water_thickness,
+                            intersubstrate_gap,
+                            water_substrate_gap,
+                            num_replicas=1,
+                            optimise_interfacial_water=True,
+                            ):
     
     input_filenames = os.listdir(substrate_dir)
 
-    with open('interface_builder.out', 'w') as file:
-        pass # clears old logfile
 
     for filename in input_filenames:
         substrate = ase.io.read('./'+substrate_dir+'/'+filename)
@@ -44,19 +53,15 @@ def interface_multi_builder(substrate_dir,water_thickness,intersubstrate_gap,wat
             interface_name = filename.split('.')[0]
 
             print('Building',filename,'interface')
-            if logfile:
-                write_to_logfile("")
-                write_to_logfile("Loaded "+filename )
-                write_to_logfile('Building Interface')
+
 
             interface_builder = InterfaceBuilder(substrate,water_thickness,intersubstrate_gap,water_substrate_gap,name=interface_name)
             start_time = time.time()
-            interface_builder.build_interface(optimise_interface=optimise_interface,enforce_physicality=enforce_physicality,freeze_whole_substrate=freeze_whole_substrate)
+            interface_builder.build_bulk_interface(optimise_interfacial_water=optimise_interfacial_water,enforce_physicality=enforce_physicality,freeze_whole_substrate=freeze_whole_substrate)
             end_time = time.time()
 
             print('Time taken:',end_time-start_time)
-            if logfile:
-                write_to_logfile('Time taken: '+ str(end_time-start_time))
+
 
             interface = interface_builder.get_interface()
 
@@ -130,21 +135,23 @@ def is_water_coordination_physical(system,substrate_indices = None):
 
 
 class InterfaceBuilder:
-    def __init__(self,substrate,water_thickness,intersubstrate_gap,water_substrate_gap,name=None):
+    def __init__(self,substrate,intersubstrate_gap,name=None):
         
         #Error handling
         if (substrate.cell.array == 0).all():
             raise ValueError('Cell of substrate is not defined')
 
-        self.input_substrate = copy.deepcopy(substrate)
-        self.substrate = copy.deepcopy(substrate)
+
+        # Takes input substrate and adjusts z-dimension of cell, adds PBC and shifts interface to z=0.
+        self.substrate = self.shift_substrate_to_cell_centre(substrate)
+
         self.num_substrate_atoms = len(self.substrate)
-        self.calculator = mace_mp(model='/home/hr492/michaelides-share/hr492/Projects/tartine_project/data/mace_models/mace_agnesi_medium.model',  dispersion=True, device='cuda')
-        self.water_thickness = water_thickness
-        self.intersubstrate_gap = intersubstrate_gap
-        self.water_substrate_gap = water_substrate_gap
+        model = '/rds/user/hr492/hpc-work/tartine_project/calculations/models/tartine_II_stagetwo_compiled.model'
+        self.calculator = MACECalculator(model_path=model,device='cuda')
+        
         self.interface = None
         self.name = name
+        self.intersubstrate_gap = intersubstrate_gap
         self.time_per_model_eval = None
 
         #Finding substrate thickness
@@ -156,77 +163,51 @@ class InterfaceBuilder:
             
 
 
-    def build_interface(self,optimiser = BFGS, enforce_physicality = False, print_H_bond_stats = False, optimise_interface=True,optimise_slab=False,freeze_whole_substrate=False):
-        # Takes input substrate and adjusts z-dimension of cell, adds PBC and shifts interface to z=0.
-        self.initialise_substrate()
-        print("Substrate initialised.")
 
-        """
-        Details of how it builds water slab:
-        - Creates cell with interfacial water slab dimensions. Adds pbc. Creates new empty atoms object and copies positions, symbols, cell etc
-        - Will attempt to fill with water such that density = 1gcm^-3. 
-        - It will check to see if the correct number H2O molecules are added attempt to do this 10 times. 
-        - There is also the option to optimise the geometry of this bulk water.
-        """
-        #Buildin water slab
-        if not enforce_physicality:
-            water_slab = self.create_water_slab(density = 1, z_expansion_factor=1,optimise_slab=optimise_slab)
-            print("Water slab created without enforcing physicality.")
-        else:
-            # Will attempt to build water slab until it is physically reasonable
-            attempts_for_building_water_slab = 0
-            slab_build_success = False
 
-            # Attempting to build water slab
-            while(not slab_build_success):
-                water_slab = self.create_water_slab(density = 1, z_expansion_factor=1,optimise_slab=optimise_slab)
-                slab_build_success = is_water_coordination_physical(water_slab)
-                attempts_for_building_water_slab+=1
-                print(f"Attempt {attempts_for_building_water_slab} to build water slab: {'Success' if slab_build_success else 'Failure'}")
-            
+    def build_cluster_interface(self):
+        pass
 
-        #Shifting to z_interface = cell_z / 2
-        interface_z =   ( self.intersubstrate_gap + self.substrate_thickness ) /2
 
-        #Shits the positions to correct height above substrate
-        water_slab.positions[:,2] = water_slab.positions[:,2] - np.min(water_slab.positions[:,2]) + interface_z + self.water_substrate_gap
-        print("Water slab positions shifted.")
+
+    def build_bulk_interface(self,
+                             water_thickness = 15,
+                             water_substrate_gap = 2,
+                             optimiser = BFGS,
+                             optimise_interfacial_water=True,
+                             optimise_water_before_adding=False,
+                             only_freeze_substrate_bottom_half=False,
+                             ):
+    
+        
+        new_substrate = copy.deepcopy(self.substrate)
+        
+        water_slab = self.create_water_slab(water_thickness,
+                                            density = 1,
+                                            z_expansion_factor=1,
+                                            fill_using_optimisation=optimise_water_before_adding,
+                                            )
+        
+        print("Water slab created.")
+
+        # Shifting water to right height above the substrate
+        interface_z =   ( self.intersubstrate_gap + self.substrate_thickness ) / 2 
+        water_slab.positions[:,2] = water_slab.positions[:,2] - np.min(water_slab.positions[:,2]) + interface_z + water_substrate_gap
+        print("Water slab interface shifted to centre of cell.")
 
         #Adds water to substrate
-        self.substrate.extend(water_slab)
+        new_substrate.extend(water_slab)
         print("Water slab added to substrate.")
 
-        water_indices = range (-len(water_slab),0)
-        #Checking H-bond stats before optimisation
-        if print_H_bond_stats:
-            un_optimised_interface_water = self.substrate[water_indices]
-            mean_H_bonds_per_water_pre_optimise = get_water_H_bond_stats(un_optimised_interface_water)
-            print(f"Mean H-bonds per water molecule before optimisation: {mean_H_bonds_per_water_pre_optimise}")
-        
+        # Optimise geometry of water above substrate
+        if optimise_interfacial_water:
+            optimised_interface = self.optimise_interfacial_water(new_substrate,
+                                                                  optimiser=optimiser,
+                                                                  only_freeze_substrate_bottom_half=only_freeze_substrate_bottom_half
+                                                                  )
 
-        #Optimising interface
-        if optimise_interface:
-            if not enforce_physicality:
-                self.substrate = self.optimise_interface(self.substrate,optimiser=optimiser,freeze_whole_substrate=freeze_whole_substrate)
-                print("Interface optimised without enforcing physicality.")
-            else:
-            # If physicality is enforced, will attempt to optimise interface until it is physically reasonable
-                attempts_to_optimise_interface = 0 
-                interface_optimisation_success = False
-                while(not interface_optimisation_success):
-                    self.substrate = self.optimise_interface(self.substrate,optimiser=optimiser,freeze_whole_substrate=freeze_whole_substrate)
-                    optimised_interface_water = self.substrate[water_indices]
-                    interface_optimisation_success = is_water_coordination_physical(optimised_interface_water)
-                    attempts_to_optimise_interface+=1
-                    print(f"Attempt {attempts_to_optimise_interface} to optimise interface: {'Success' if interface_optimisation_success else 'Failure'}")
 
-        #Checking H-bond stats after optimisation
-        if print_H_bond_stats:
-            optimised_interface_water = self.substrate[water_indices]
-            mean_H_bonds_per_water_post_optimise = get_water_H_bond_stats(optimised_interface_water)
-            print(f"Mean H-bonds per water molecule after optimisation: {mean_H_bonds_per_water_post_optimise}")
-
-        self.interface = self.substrate
+        self.interface = optimised_interface
         print("Interface building complete.")
 
         return self.interface
@@ -238,53 +219,61 @@ class InterfaceBuilder:
         return self.interface
 
 
-    def initialise_substrate(self):    
+    def shift_substrate_to_cell_centre(self,substrate):    
         """
-        Shifts interface to z=0. Adapts cell to correct z dimensions. Adds PBCs.
+        Returns substrate with z vals shifted such that the interface is at the middle of the cell. 
         """
         
 
-        #Taking the substrate and creating a new object without all the tags etc:
-        blank_substrate = ase.Atoms(symbols=self.substrate.symbols,
-                positions=self.substrate.positions,
-                cell=self.substrate.cell,
-                pbc=self.substrate.pbc)
-        self.substrate = blank_substrate #This ensures that the atoms file is clean
+        # Taking the substrate and creating a new object without all the tags etc:
+        new_substrate = ase.Atoms(symbols=substrate.symbols,
+                                    positions=self.substrate.positions,
+                                    cell=self.substrate.cell,
+                                    pbc=self.substrate.pbc)
 
 
-        #Top of interface moved to z_interface = middle of cell
-        if len(self.substrate)==0:
+        # Top of interface moved to z_interface = middle of cell
+        if len(substrate)==0:
             pass
         else:
-            all_substrate_z_vals = self.substrate.positions[:,2]
-            self.substrate.positions[:,2] = self.substrate.positions[:,2] - np.max(all_substrate_z_vals) + (self.substrate_thickness + self.intersubstrate_gap)/2
+            all_substrate_z_vals = new_substrate.positions[:,2]
+            new_substrate.positions[:,2] = new_substrate.positions[:,2] - np.max(all_substrate_z_vals) + (self.substrate_thickness + self.intersubstrate_gap)/2
 
 
-        #Adjusting cell
-        self.substrate.cell[2] = np.array([0,0,self.intersubstrate_gap+self.substrate_thickness])
-        self.substrate.set_pbc( (True,True,True) )
-
-        self.input_substrate =  copy.deepcopy(self.substrate) #This is the substrate before water is added
+        # Adjusting cell
+        new_substrate.cell[2] = np.array([0,0,self.intersubstrate_gap+self.substrate_thickness])
+        new_substrate.set_pbc( (True,True,True) )
 
 
-    def create_water_slab(self,density =1, z_expansion_factor=1.5,optimise_slab=False,water_tags=False):
-        #This will be an atoms object of bulk water
+        return new_substrate
+
+
+
+
+    def create_water_slab(self,
+                          water_thickness,
+                          density =1,
+                          z_expansion_factor=1.5,
+                          fill_using_optimisation=False
+                          ):
+       
 
         #Create empty water slab
         empty_water_slab =ase.Atoms()
         water_box_vectors = copy.deepcopy(self.substrate.cell)
-        water_box_vectors[2] = np.array([0,0,self.water_thickness * z_expansion_factor]) # Slightly thicker slab to allow for relaxation
+        water_box_vectors[2] = np.array([0,0,water_thickness * z_expansion_factor]) # Slightly thicker slab to allow for relaxation
         lat_vec_0=water_box_vectors[0]
         lat_vec_1=water_box_vectors[1]
+
 
         #Setting cell
         empty_water_slab.set_cell(water_box_vectors)
         empty_water_slab.pbc = (True,True,True)
 
-        #number of water molecules for density=1
-        water_density=1
-        vol =  np.abs(np.dot( np.array([0,0,self.water_thickness]) , np.cross(lat_vec_0,lat_vec_1) ) ) 
-        weight = water_density * 10**-1 * vol
+
+        #number of water molecules for given density
+        vol =  np.abs(np.dot( np.array([0,0,water_thickness]) , np.cross(lat_vec_0,lat_vec_1) ) ) 
+        weight = density * 10**-1 * vol
         num = weight / 2.9915
         n_water = int(num)
 
@@ -301,25 +290,30 @@ class InterfaceBuilder:
                 successfully_added = True
             else:
                 attempts+=1
+
+                # Tries to add more water after packing
+                if fill_using_optimisation:
+                    try:
+                        water_slab = slab_builder.get_system()
+                        optimised_water = self.optimise_water(water_slab)
+                        slab_builder.set_system(optimised_water)
+                    except:
+                        print('Water slab optimisation failed during filling.')
+
                 if attempts > 10:
                     raise ValueError('Could not fit water in slab')
     
+
         water_slab = slab_builder.get_system()
-
-        if optimise_slab:
-            # Optimising the water slab sturcture
-            # This is optimising it as if it were bulk water#
-            #You may have weird wrapping issues
-            water_slab = self.optimise_water(water_slab)
+        return water_slab
 
 
-        if water_tags:
-            water_slab.set_tags(1)
-
-        return water_slab #error here before!
-
-
-    def optimise_water(self,input_water_slab,optimiser=BFGS,max_steps=1000):
+    def optimise_water(self,
+                       input_water_slab,
+                       optimiser=BFGS,
+                       max_steps=1000,
+                       ):
+        
         # Optimises water slab. 
         water = copy.deepcopy(input_water_slab)
         water.calc = self.calculator
@@ -331,22 +325,28 @@ class InterfaceBuilder:
         return water
     
         
-    def optimise_interface(self,input_interface,optimiser=BFGS,max_steps=1000,freeze_whole_substrate=False):
+    def optimise_interfacial_water(self,
+                                   input_interface,
+                                   optimiser=BFGS,
+                                   max_steps=1000,
+                                   only_freeze_substrate_bottom_half=False):
+        
+
         interface = copy.deepcopy(input_interface)
         interface.calc = self.calculator
 
 
         #Freezing substrate (either whole or bottom half)
-        num_substrate_atoms = len(self.input_substrate)
-        num_interface_atoms = len(self.substrate)
-        substrate_atom_indices = np.arange(0,num_substrate_atoms,1) #Note, we have assumed that substrates were added to tartine before water
+        num_substrate_atoms = len(self.substrate)
+        num_interface_atoms = len(input_interface)
+        substrate_atom_indices = np.arange(0,num_substrate_atoms,1) 
         interface_atom_indices = np.arange(0,num_interface_atoms,1)
         
-        if freeze_whole_substrate: #freeze whole substrate
-            c = FixAtoms(indices=substrate_atom_indices)
+        
+        c = FixAtoms(indices=substrate_atom_indices)
 
-        else: #freeze bottom half of substrate 
-            substrate_atom_z_coords = self.input_substrate.positions[:,2]
+        if only_freeze_substrate_bottom_half: 
+            substrate_atom_z_coords = self.substrate.positions[:,2]
             interface_atom_z_coords = self.substrate.positions[:,2]
             median_z_coord = np.median(substrate_atom_z_coords)
             isin_substrate_bottom_half_mask = [coord <= median_z_coord for coord in interface_atom_z_coords]

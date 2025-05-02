@@ -15,6 +15,7 @@ from ase.optimize import BFGS
 from ase.optimize import FIRE
 import ase.data
 from ase.constraints import StrainFilter
+from scipy.signal import find_peaks
 
 
 
@@ -231,7 +232,7 @@ def find_top_layer_indices(substrate,num_layers):
 
 
 
-def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=False, num_layers = 4,bins=400):
+def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=False, num_layers = 4,bins=400,species='O'):
 
     #NOTE: You need to put in equilibrated trajectories (they will not be truncated in this function)
 
@@ -262,8 +263,8 @@ def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=F
 
 
         #Aggregating Z vals over entire trajectory and for all O atoms (that are not in the substrate)
-        all_O_indices = np.where(input_trajectory[0].symbols == 'O') [0] 
-        substrate_0_indices = np.where(substrate.symbols == 'O') [0]
+        all_O_indices = np.where(input_trajectory[0].symbols == species) [0] 
+        substrate_0_indices = np.where(substrate.symbols == species) [0]
         O_indices = np.setdiff1d(all_O_indices, substrate_0_indices)
         all_O_trajectories = find_atomic_trajectories(O_indices,input_trajectory,relative_to_COM=True)
         all_O_traj_relative_to_interface = []
@@ -315,9 +316,13 @@ def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=F
     else:
         return bin_centers, average_density, errors 
 
-from scipy.signal import find_peaks
 
-def get_z_density_turning_points(z_values, density_profile, distance=3, prominence=0.3):
+def get_z_density_turning_points(z_values, density_profile, prominence=0.3):
+
+    # This functions is deceptive. Could be called get first peak width, or something like that.
+    # The real get_z_turning_points should actually return: peaks, troughs.
+
+
     """
     Identify the turning points (peaks and troughs) in a density profile.
 
@@ -341,7 +346,8 @@ def get_z_density_turning_points(z_values, density_profile, distance=3, prominen
     first_non_zero_z = z_values[first_non_zero_index]
 
     # Find peaks in the density profile
-    peaks, _ = find_peaks(density_profile, distance=distance, prominence=prominence)
+    peaks, _ = find_peaks(density_profile, distance=10, prominence=prominence)
+    
     if len(peaks) == 0:
         first_trough_z= None
     else:
@@ -352,7 +358,7 @@ def get_z_density_turning_points(z_values, density_profile, distance=3, prominen
         first_peak_z = z_values[first_peak_index]
 
         # Find troughs (local minima) in the density profile
-        troughs, _ = find_peaks(-density_profile, distance=distance, prominence=prominence)
+        troughs, _ = find_peaks(-density_profile, distance=10, prominence=prominence)
         if len(troughs) == 0:
             first_trough_z= None
         else:
