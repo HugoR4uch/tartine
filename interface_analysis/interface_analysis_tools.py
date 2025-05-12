@@ -19,162 +19,9 @@ from scipy.signal import find_peaks
 
 
 
-#Section: Pictures of the interfaces
-
-def make_interface_snapshot(name,interface,substrate,snapshot_dir='.'):
-    from ase.visualize.plot import plot_atoms
-
-    #Creating directory to save snapshots
-    if not os.path.exists(snapshot_dir):
-        os.makedirs(snapshot_dir)
-
-    #Plotting Snapshot
-    fig, axes = plt.subplots(1, 2, figsize=(8, 8))  
-    plot_atoms(interface, ax=axes[0], rotation=('-90x,0y,0z'))
-    plot_atoms(substrate, ax=axes[1], rotation=('0x,0y,0z'))
-
-    #Adding Title
-    plt.tight_layout() 
-    plt.title(name+ ' interface')
-    plt.savefig(snapshot_dir+'/'+name+'.png')
-    plt.close()
-
-#Section: Plots for temperature / Energy vs time
 
 
-def find_cumul_temp(Temperatures):
-    cumul_temp = []
-    for i,temp in enumerate(Temperatures):
-        cumul_temp.append(np.mean(Temperatures[:i]))
-    return cumul_temp
-
-def make_temp_equilibrium_plot():
-    pass
-
-def make_thermodynamics_plot(name,logfile_paths,T_target,equilib_end_frame=0,end_frame=-1,figures_dir='.'):
-    #Creating directory to save snapshots
-    if not os.path.exists(figures_dir):
-        os.makedirs(figures_dir)
-
-    num_traj = len(logfile_paths)
-
-    #Plotting Snapshot
-    
-
-    #Temp and Energy Stats Initialize
-    Temp_mean_vals =[]
-    Energy_std_vals = []
-    Temp_std_vals = []
-
-    if len(logfile_paths) == 1:
-        fig, ax = plt.subplots(1,2,figsize=(8, 8),sharex=True,sharey=False)
-        logfile = logfile_paths[0]
-        data = np.loadtxt(logfile,skiprows=1)
-        #Giving Title to the first row
-        ax[0].set_title('Energy vs Time')
-        ax[1].set_title('Temperature vs Time')
-        #Getting data
-        Temp = data[:,4][equilib_end_frame:end_frame]
-        Energy = data[:,1][equilib_end_frame:end_frame]
-        time = data[:,0][equilib_end_frame:end_frame]
-        #Getting statistics
-        temp_mean_minus_target = np.mean(Temp) - T_target
-        temp_std = np.std(Temp)
-        Temp_mean_vals.append(np.mean(Temp))
-        Temp_std_vals.append(temp_std)
-        cumul_temp = find_cumul_temp(Temp)
-        #Plotting E vs t
-        ax[0].plot(time,Energy,label = logfile.split('/')[-1].split('.')[0])
-        ax[0].set_xlabel('Time (ps)')
-        ax[0].set_ylabel('Energy/Atom (eV)')
-        ax[0].set_ylim([np.mean(Energy)-0.025,np.mean(Energy)+0.025])
-        ax[0].grid()
-        #Plotting T vs t
-        ax[1].plot(time,Temp,label = logfile.split('/')[-1].split('.')[0])
-        ax[1].plot(time,cumul_temp,label = 'cum-Temp')
-        ax[1].legend(loc='upper left')
-        ax[1].set_ylabel('Temperature (K)')
-        ax[1].set_xlabel('Time (ps)')
-        ax[1].grid()
-        T_targets = np.ones(len(Temp))*T_target
-
-        ax[1].plot(time,T_targets,label = 'Target Temperature',linestyle = '--')
-        # Add textbox
-        textstr = f'Mean - Target: {temp_mean_minus_target:.2f}'
-        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-        
-
-
-    else:
-
-        fig, ax = plt.subplots(num_traj,2,figsize=(8, 8),sharex=True,sharey=False)
-        for i,logfile in enumerate( logfile_paths ):
-            data = np.loadtxt(logfile,skiprows=1)
-
-
-            if len(logfile_paths) == 1:
-                ax[i] = ax[i]
-
-            #Giving Title to the first row
-            if i ==0:
-                ax[i][0].set_title('Energy vs Time')
-                ax[i][1].set_title('Temperature vs Time')
-            
-
-            #Getting data
-            Temp = data[:,4][equilib_end_frame:end_frame]
-            Energy = data[:,1][equilib_end_frame:end_frame]
-            time = data[:,0][equilib_end_frame:end_frame]
-
-            #Getting statistics
-            temp_mean_minus_target = np.mean(Temp) - T_target
-            print(type(temp_mean_minus_target))
-            temp_std = np.std(Temp)
-            Temp_mean_vals.append(np.mean(Temp))
-            Temp_std_vals.append(temp_std)
-            cumul_temp = find_cumul_temp(Temp)
-
-            #Plotting E vs t
-            ax[i][0].plot(time,Energy,label = logfile.split('/')[-1].split('.')[0])
-            ax[i][0].set_xlabel('Time (ps)')
-            ax[i][0].set_ylabel('Energy/Atom (eV)')
-            ax[i][0].set_ylim([np.mean(Energy)-0.025,np.mean(Energy)+0.025])
-            ax[i][0].grid()
-            
-            #Plotting T vs t
-            ax[i][1].plot(time,Temp,label = logfile.split('/')[-1].split('.')[0])
-            ax[i][1].plot(time,cumul_temp,label = 'cum-Temp')
-            ax[i][1].legend(loc='upper left')
-            ax[i][1].set_ylabel('Temperature (K)')
-            ax[i][1].set_xlabel('Time (ps)')
-            ax[i][1].grid()
-            T_targets = np.ones(len(Temp))*T_target
-            ax[i][1].plot(time,T_targets,label = 'Target Temperature',linestyle = '--')
-
-            # Add textbox
-            textstr = f'Mean - Target: {temp_mean_minus_target:.2f}'
-            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            ax[i][1].text(0.5, 0.15, textstr, transform=ax[i][1].transAxes, fontsize=10,
-                    verticalalignment='bottom', horizontalalignment='right', bbox=props)
-
-
-
-    # Move plt.tight_layout() here
-        
-    plt.tight_layout()
-    plt.savefig(figures_dir+'/'+name+'_thermodynamics.png')
-    plt.close()
-        
-    return Temp_mean_vals,Temp_std_vals
-
-
-#Section: Water Density vs Z
-
-
-
-
-
-def find_atomic_trajectories(atom_indices,input_trajectory,relative_to_COM=False):
+def find_atomic_trajectories(input_trajectory, atom_indices = None,relative_to_COM=False):
     """
     Returns 
     -------
@@ -186,6 +33,8 @@ def find_atomic_trajectories(atom_indices,input_trajectory,relative_to_COM=False
         #Find traj of COM
         COM_trajectory = find_COM_trajectory(input_trajectory)
 
+    if atom_indices == None:
+        atom_indices = np.arange(0,len(input_trajectory[0]),1)
 
     frame_indices=np.arange(0,len(input_trajectory),1) #if no frame indices specified, assume whole trajectory
     
@@ -217,6 +66,7 @@ def find_COM_trajectory(input_trajectory):
         COM_trajectory.append( input_trajectory[frame_index].get_center_of_mass() ) 
     COM_trajectory = np.array(COM_trajectory)
     return COM_trajectory
+
 
 
 def find_top_layer_indices(substrate,num_layers):
@@ -254,7 +104,7 @@ def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=F
 
         #Finding the interface z-value
         substrate_top_layer_indices = find_top_layer_indices(substrate,num_layers)
-        all_top_layer_atom_trajectories = find_atomic_trajectories(substrate_top_layer_indices,input_trajectory,relative_to_COM=True)
+        all_top_layer_atom_trajectories = find_atomic_trajectories(input_trajectory,substrate_top_layer_indices,relative_to_COM=True)
 
         interface_z_mean_traj = []
         for frame_positions in all_top_layer_atom_trajectories.transpose(1,0,2): # transpose fron (atom index, frame index, coord) to (frame index, atom index, coord index)
@@ -266,7 +116,7 @@ def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=F
         all_O_indices = np.where(input_trajectory[0].symbols == species) [0] 
         substrate_0_indices = np.where(substrate.symbols == species) [0]
         O_indices = np.setdiff1d(all_O_indices, substrate_0_indices)
-        all_O_trajectories = find_atomic_trajectories(O_indices,input_trajectory,relative_to_COM=True)
+        all_O_trajectories = find_atomic_trajectories(input_trajectory,O_indices,relative_to_COM=True)
         all_O_traj_relative_to_interface = []
         for frame_index, frame_positions in enumerate(all_O_trajectories.transpose(1,0,2)):
             frame_z_vals = frame_positions[:,2]
@@ -317,58 +167,112 @@ def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=F
         return bin_centers, average_density, errors 
 
 
-def get_z_density_turning_points(z_values, density_profile, prominence=0.3):
 
-    # This functions is deceptive. Could be called get first peak width, or something like that.
-    # The real get_z_turning_points should actually return: peaks, troughs.
+# def get_z_density_turning_points(z_values, density_profile, prominence=0.3):
+
+#     # This functions is deceptive. Could be called get first peak width, or something like that.
+#     # The real get_z_turning_points should actually return: peaks, troughs.
 
 
-    """
-    Identify the turning points (peaks and troughs) in a density profile.
+#     # Find the first z value with a non-zero density
+#     density_profile = np.array(density_profile)
+#     non_zero_indices = np.where(density_profile > 0)[0]
+#     first_non_zero_index = non_zero_indices[0]
+#     first_non_zero_z = z_values[first_non_zero_index]
 
-    Parameters:
-    z_values (array-like): The z-coordinates corresponding to the density profile.
-    density_profile (array-like): The density values along the z-axis.
-    threshold (float, optional): The required vertical distance to its neighboring samples for a point to be considered a peak.
-    distance (int, optional): The required minimum horizontal distance (in number of samples) between neighboring peaks.
-    prominence (float, optional): The required prominence of peaks. Prominence is the vertical distance between the peak and its lowest contour line, 
-                                  where the contour line is the lowest point to which the peak can be descended by moving left and right without encountering a higher peak.
-
-    Returns:
-    tuple: A tuple containing:
-        - first_non_zero_z (float): The first z-coordinate with a non-zero density.
-        - first_trough_z (float): The z-coordinate of the first trough after the first peak.
-    """
-    # Find the first z value with a non-zero density
-    density_profile = np.array(density_profile)
-    non_zero_indices = np.where(density_profile > 0)[0]
-    first_non_zero_index = non_zero_indices[0]
-    first_non_zero_z = z_values[first_non_zero_index]
-
-    # Find peaks in the density profile
-    peaks, _ = find_peaks(density_profile, distance=10, prominence=prominence)
+#     # Find peaks in the density profile
+#     peaks, _ = find_peaks(density_profile, distance=10, prominence=prominence)
     
-    if len(peaks) == 0:
-        first_trough_z= None
-    else:
+#     if len(peaks) == 0:
+#         first_trough_z= None
+#     else:
 
-        # Get the first peak
-        print('Peaks: ',peaks)
-        first_peak_index = peaks[0]
-        first_peak_z = z_values[first_peak_index]
+#         # Get the first peak
+#         print('Peaks: ',peaks)
+#         first_peak_index = peaks[0]
+#         first_peak_z = z_values[first_peak_index]
 
-        # Find troughs (local minima) in the density profile
-        troughs, _ = find_peaks(-density_profile, distance=10, prominence=prominence)
-        if len(troughs) == 0:
-            first_trough_z= None
-        else:
-        # Find the first trough after the first peak
-            first_trough_index = troughs[troughs > first_peak_index][0]
-            first_trough_z = z_values[first_trough_index]
+#         # Find troughs (local minima) in the density profile
+#         troughs, _ = find_peaks(-density_profile, distance=10, prominence=prominence)
+#         if len(troughs) == 0:
+#             first_trough_z= None
+#         else:
+#         # Find the first trough after the first peak
+#             first_trough_index = troughs[troughs > first_peak_index][0]
+#             first_trough_z = z_values[first_trough_index]
 
-        return first_non_zero_z, first_trough_z
+#         return first_non_zero_z, first_trough_z
 
         
+
+def get_xy_RDF(trajectories,
+               substrate,
+               species_indices_1,
+               species_indices_2,
+               num_layers=None,
+               z_min=None,
+               z_max=None,
+               r_max=10):
+
+
+    for trajectory in trajectories:
+        
+
+            find_top_layer_indices(substrate,num_layers)
+
+            #Finding the interface z-value
+            substrate_top_layer_indices = find_top_layer_indices(substrate,num_layers)
+            all_top_layer_atom_trajectories = find_atomic_trajectories(trajectory,
+                                                                       substrate_top_layer_indices,
+                                                                       relative_to_COM=True)
+
+            interface_z_mean_traj = []
+            # transpose fron (atom index, frame index, coord) to (frame index, atom index, coord index)
+            for frame_positions in all_top_layer_atom_trajectories.transpose(1,0,2): 
+                z_vals = frame_positions[:,2]
+                interface_z_mean_traj.append(np.mean(z_vals)) 
+
+
+            for frame in trajectory:
+        
+
+                #Aggregating Z vals over entire trajectory and for all O atoms (that are not in the substrate)
+                all_O_indices = np.where(input_trajectory[0].symbols == species) [0] 
+                substrate_0_indices = np.where(substrate.symbols == species) [0]
+                O_indices = np.setdiff1d(all_O_indices, substrate_0_indices)
+                all_O_trajectories = find_atomic_trajectories(input_trajectory,O_indices,relative_to_COM=True)
+                all_O_traj_relative_to_interface = []
+                for frame_index, frame_positions in enumerate(all_O_trajectories.transpose(1,0,2)):
+                    frame_z_vals = frame_positions[:,2]
+                    frame_z_vals_relative_to_interface = frame_z_vals - interface_z_mean_traj[frame_index]
+                    all_O_traj_relative_to_interface.append(frame_z_vals_relative_to_interface)
+
+                all_O_atom_z_val_displacements = np.array(all_O_traj_relative_to_interface).flatten()
+                data = all_O_atom_z_val_displacements 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def get_xy_density_profile(trajectories,species,z_min,z_max,L,substrate,return_all_profiles=False,num_layers=4):
 
@@ -403,7 +307,7 @@ def get_xy_density_profile(trajectories,species,z_min,z_max,L,substrate,return_a
         all_species_indices = np.where(input_trajectory[0].symbols == species) [0]
         substrate_species_indices = np.where(substrate.symbols == species) [0]
         species_indices = np.setdiff1d(all_species_indices, substrate_species_indices)
-        all_species_trajectories = find_atomic_trajectories(species_indices,input_trajectory,relative_to_COM=True)
+        all_species_trajectories = find_atomic_trajectories(input_trajectory,species_indices,relative_to_COM=True)
         all_xy_pairs = []
         for frame_index, frame_positions in enumerate(all_species_trajectories.transpose(1,0,2)):
             frame_z_vals = frame_positions[:,2]
@@ -460,12 +364,13 @@ def get_xy_density_profile(trajectories,species,z_min,z_max,L,substrate,return_a
         return bin_centers_x,bin_centers_y, average_density, errors 
 
 
+
 def get_xy_trajectory(trajectory, substrate, L, stride=10, num_layers=4):
     # Find the indices of the atoms in the top layer of the substrate
     top_layer_indices = find_top_layer_indices(substrate, num_layers)
     
     # Find the x, y trajectories of these atoms, relative to the COM of the system
-    all_top_layer_atom_trajectories = find_atomic_trajectories(top_layer_indices, trajectory, relative_to_COM=True)
+    all_top_layer_atom_trajectories = find_atomic_trajectories(trajectory,top_layer_indices,  relative_to_COM=True)
     
     # Initialize lists to store x and y values
     all_x_values = []
@@ -480,34 +385,6 @@ def get_xy_trajectory(trajectory, substrate, L, stride=10, num_layers=4):
         all_y_values.extend(y_vals[valid_indices])
 
     return all_x_values, all_y_values
-
-
-
-
-# def xy_pair_correlation_function(trajectory,species_1,species_2,bins=100):
-    
-#     displacements = []
-
-#     for frame_index in range(len(trajectory)):
-#         for index in group_1_indices:
-#             other_indices = np.setdiff1d(group_2_indices,index)
-#             displacements.append( trajectory[frame_index].get_distances(index,other_indices,vector=True,mic=True)[:,:2] )
-    
-#     #Flattening <distances>
-#     flat_distances =  np.array(displacements).reshape(-1, 2)
-
-#     return flat_distances
-            
-
-
-# O_indices = np.where(trajectory[0].symbols == 'O') [0]
-
-# distances =xy_pair_correlation_function(O_indices,O_indices)
-
-
-# #350K 2d correlation function
-# plt.hist2d(distances[:,0],distances[:,1],bins=100)
-# plt.show()
 
 
 
@@ -544,7 +421,7 @@ def get_xy_pair_correlations(trajectories,
 
         #Finding the interface z-value (so we can select atoms with z_min < z < z_max)
         substrate_top_layer_indices = find_top_layer_indices(substrate,num_layers)
-        all_top_layer_atom_trajectories = find_atomic_trajectories(substrate_top_layer_indices,input_trajectory,relative_to_COM=True)
+        all_top_layer_atom_trajectories = find_atomic_trajectories(input_trajectory,substrate_top_layer_indices,relative_to_COM=True)
 
         interface_z_mean_traj = []
         for frame_positions in all_top_layer_atom_trajectories.transpose(1,0,2): # transpose fron (atom index, frame index, coord) to (frame index, atom index, coord index)
@@ -556,7 +433,7 @@ def get_xy_pair_correlations(trajectories,
         if no_group_1_z_lims:
             group_1_masks = np.ones((T, len(group_1_indices)), dtype=bool)
         else:
-            group_1_trajectories = find_atomic_trajectories(group_1_indices, input_trajectory, relative_to_COM=True)
+            group_1_trajectories = find_atomic_trajectories(input_trajectory,group_1_indices,  relative_to_COM=True)
             group_1_masks = []
             for frame_index, frame_positions in enumerate(group_1_trajectories.transpose(1, 0, 2)):
                 frame_z_vals = frame_positions[:, 2]
@@ -567,7 +444,7 @@ def get_xy_pair_correlations(trajectories,
         if no_group_2_z_lims:
             group_2_masks = np.ones((T, len(group_2_indices)), dtype=bool)
         else:
-            group_2_trajectories = find_atomic_trajectories(group_2_indices, input_trajectory, relative_to_COM=True)
+            group_2_trajectories = find_atomic_trajectories(input_trajectory,group_2_indices,  relative_to_COM=True)
             group_2_masks = []
             for frame_index, frame_positions in enumerate(group_2_trajectories.transpose(1, 0, 2)):
                 frame_z_vals = frame_positions[:, 2]
@@ -602,7 +479,7 @@ def get_xy_pair_correlations(trajectories,
 
         #Aggregating x,y vals over entire trajectory and for all <species> atoms
         species_indices = np.where(input_trajectory[0].symbols == species) [0]
-        all_species_trajectories = find_atomic_trajectories(species_indices,input_trajectory,relative_to_COM=True)
+        all_species_trajectories = find_atomic_trajectories(input_trajectory,species_indices,relative_to_COM=True)
         all_xy_pairs = []
         for frame_index, frame_positions in enumerate(all_species_trajectories.transpose(1,0,2)):
             frame_z_vals = frame_positions[:,2]
@@ -659,57 +536,4 @@ def get_xy_pair_correlations(trajectories,
         return bin_centers_x,bin_centers_y, number_densities
     else:
         return bin_centers_x,bin_centers_y, average_density, errors 
-
-
-def get_contact_layer_only_trajectory(trajectory,species,name,substrate,z_min,z_max=20,num_layers=4):
-    
-    #NOTE: You need to put in equilibrated trajectories (they will not be truncated in this function)
-    #NOTE: THIS ONLY WORKS FOR ORTHORHOMBIC CELLS
-
-  
-    number_densities = [] 
-
-
-    # Get the z density profile
-    z_values, density_profile, _ = get_z_density_profile([trajectory], substrate, z_min, z_max)
-
-    # Get the turning points in the z density profile
-    turning_points = get_z_density_turning_points(z_values, density_profile)
-
-    print('Turning points: ',turning_points)
-
-    if None in turning_points:
-        return None
-    else:
-        first_non_zero_z, first_trough_z = turning_points
-    
-    input_trajectory = copy.deepcopy(trajectory) 
-
-
-    #Finding the interface z-value (so we can select atoms with z_min < z < z_max)
-    substrate_top_layer_indices = find_top_layer_indices(substrate,num_layers)
-    all_top_layer_atom_trajectories = find_atomic_trajectories(substrate_top_layer_indices,input_trajectory,relative_to_COM=True)
-
-    interface_z_mean_traj = []
-    for frame_positions in all_top_layer_atom_trajectories.transpose(1,0,2): # transpose fron (atom index, frame index, coord) to (frame index, atom index, coord index)
-        z_vals = frame_positions[:,2]
-        interface_z_mean_traj.append(np.mean(z_vals)) 
-
-
-    # Finding trajectory of contact layer
-    new_trajectory = []
-
-    com_traj = find_COM_trajectory(input_trajectory)
-
-    for frame_index, frame in enumerate(input_trajectory):
-
-        frame_z_vals = frame.positions[:, 2]
-        frame_z_vals_relative_to_COM = np.array(frame_z_vals) - com_traj[frame_index][2]
-        frame_z_vals_relative_to_interface = frame_z_vals_relative_to_COM - interface_z_mean_traj[frame_index]
-        valid_indices = np.where((frame_z_vals_relative_to_interface >= z_min) & (frame_z_vals_relative_to_interface <= first_trough_z))[0]
-        new_frame = input_trajectory[frame_index][valid_indices]
-        new_trajectory.append(new_frame)
-
-    # Write the new trajectory to a file
-    return new_trajectory
 

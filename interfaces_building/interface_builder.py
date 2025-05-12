@@ -23,21 +23,12 @@ def plot_atoms(atoms,rotation=('0x,0y,0z')):
 
 
 
-def monolayer_multi_builder(substrate_dir,
-                            contact_layer_info,
-                            intersubstrate_gap,
-                            water_substrate_gap,
-                            num_replicas=1,
-                            optimise_interfacial_water=True,
-                            ):
-    pass
-
-
 def bulk_interface_multi_builder(substrate_dir,
-                            water_thickness,
                             intersubstrate_gap,
                             water_substrate_gap,
                             num_replicas=1,
+                            thickness = {},
+                            density = {},
                             optimise_interfacial_water=True,
                             ):
     
@@ -45,19 +36,46 @@ def bulk_interface_multi_builder(substrate_dir,
 
 
     for filename in input_filenames:
-        substrate = ase.io.read('./'+substrate_dir+'/'+filename)
-        
+
+        interface_name = filename.split('.')[0]
+
+        if type(thickness) == dict:
+            if interface_name in thickness:
+                water_thickness = thickness[interface_name]
+            else:
+                water_thickness = 3 # Typical width of contact layer
+        else:
+            water_thickness = thickness
+            
+
+        if type(density) == dict:
+            if interface_name in density:
+                water_density = density[interface_name]
+            else:
+                water_density = 1
+        else:
+            water_density = density
+
+
+        substrate_file_path = os.path.join(substrate_dir,filename)
+        substrate = ase.io.read(substrate_file_path)
 
         for replica_index in range(num_replicas):
-
-            interface_name = filename.split('.')[0]
 
             print('Building',filename,'interface')
 
 
-            interface_builder = InterfaceBuilder(substrate,water_thickness,intersubstrate_gap,water_substrate_gap,name=interface_name)
+        
+
+            interface_builder = InterfaceBuilder(substrate,
+                                                 water_thickness,
+                                                 water_density,
+                                                 intersubstrate_gap,
+                                                 name=interface_name)
             start_time = time.time()
-            interface_builder.build_bulk_interface(optimise_interfacial_water=optimise_interfacial_water,enforce_physicality=enforce_physicality,freeze_whole_substrate=freeze_whole_substrate)
+            interface_builder.build_bulk_interface(water_substrate_gap=water_substrate_gap,
+                                                   optimise_interfacial_water=optimise_interfacial_water,
+                                                   )
             end_time = time.time()
 
             print('Time taken:',end_time-start_time)
@@ -77,22 +95,32 @@ def bulk_interface_multi_builder(substrate_dir,
     return True
 
 
+
+def find_top_layer_indices(substrate,num_layers):
+    z_vals = substrate.positions[:,2]
+    if num_layers == None:
+        top_layer_z_val_threshold = np.max(z_vals) - 0.1 # anything 0.1 A below top atom
+    else:
+        top_layer_z_val_threshold = np.percentile(z_vals, 100*(1-1/num_layers))
+    top_layer_indices = np.where(z_vals >= top_layer_z_val_threshold)[0]
+    return top_layer_indices
+
+
+
 """ Tools for checking physicality of interfacial water"""
+
+
 
 def get_water_H_bond_stats(system,substrate_indices = None):
     # Initialization
-
     if substrate_indices is None:
         system_water = system
     else:
         system_size = len(system)
         water_indices = np.setdiff1d(np.array(range(system_size)) , np.array(substrate_indices))
         system_water = system[water_indices]
-
-
     analyser = water_analyser.Analyser([system_water])
     frame_index= 0 #as only one 'frame'
-
     #Getting H-bond statistics
     connectivity_matrx = analyser.get_H_bond_connectivity(frame_index)
     num_H_bonds_list = []
@@ -100,10 +128,9 @@ def get_water_H_bond_stats(system,substrate_indices = None):
     for i in range(num_water_O):
         num_H_bonds = np.sum(connectivity_matrx[i])
         num_H_bonds_list.append(num_H_bonds)
-
     mean_H_bonds_per_water = sum(num_H_bonds_list)/num_water_O
-
     return mean_H_bonds_per_water
+
 
 def is_water_coordination_physical(system,substrate_indices = None):
     
@@ -133,26 +160,35 @@ def is_water_coordination_physical(system,substrate_indices = None):
 
     
 
-
 class InterfaceBuilder:
-    def __init__(self,substrate,intersubstrate_gap,name=None):
+    def __init__(self,
+                 substrate,
+                 water_thickness,
+                 water_density,
+                 intersubstrate_gap,
+                 name=None):
         
-        #Error handling
-        if (substrate.cell.array == 0).all():
-            raise ValueError('Cell of substrate is not defined')
 
-
-        # Takes input substrate and adjusts z-dimension of cell, adds PBC and shifts interface to z=0.
-        self.substrate = self.shift_substrate_to_cell_centre(substrate)
-
-        self.num_substrate_atoms = len(self.substrate)
-        model = '/rds/user/hr492/hpc-work/tartine_project/calculations/models/tartine_II_stagetwo_compiled.model'
-        self.calculator = MACECalculator(model_path=model,device='cuda')
-        
+                
         self.interface = None
         self.name = name
         self.intersubstrate_gap = intersubstrate_gap
         self.time_per_model_eval = None
+        self.water_thickness = water_thickness
+        self.water_density = water_density
+
+
+        #Error handling
+        if (substrate.cell.array == 0).all():
+            raise ValueError('Cell of substrate is not defined')
+
+        # Takes input substrate and adjusts z-dimension of cell, adds PBC and shifts interface to z=0.
+        self.substrate = substrate
+
+        self.num_substrate_atoms = len(self.substrate)
+        model = '/home/hr492/michaelides-share/hr492/Projects/tartine_project/data/mace_models/tartine_II_stagetwo_compiled.model'
+        self.calculator = MACECalculator(model_path=model,device='cuda')
+
 
         #Finding substrate thickness
         if len(self.substrate)==0:
@@ -161,17 +197,66 @@ class InterfaceBuilder:
             all_substrate_z_vals = self.substrate.positions[:,2]
             self.substrate_thickness = np.max(all_substrate_z_vals) - np.min(all_substrate_z_vals)
             
+        
+
+        self.substrate = self.shift_substrate_to_cell_centre(substrate)
+
+    def build_cluster_interface(self,
+                                resolution_index = 2,
+                                num_water = 1,
+                                num_layers= None,
+                                z_start = 3,
+                                
+                                ):
+        
+
+        raise NotImplementedError("Cluster interface building not yet implemented")
+
+        """
+        Builds interface with a cluster of molecules on top of the substrate.
+        
+        Parameters
+        ----------
+        resolution_index : float
+            Resolution for possible x,y coordinates of the cluster.
+            The higher the resolution, the more possible coordinates.
+            The number of possible coordinates is 2**resolution_index.
+            For example, resolution 1 means water can be placed on every top layer atom;
+            resolution 2 means water can be placed between every two top layer atoms;
+            resolution 3 means water can be placed between the atoms and the midpoints between atoms.
+        num_water : int
+            Number of water molecules in the cluster.
+        num_layser : int
+            Number of layers in the cluster. If None, the cluster is built with a single layer.
+
+        """
+
+
+        top_layer_indices = find_top_layer_indices(self.substrate,num_layers)
+
+        top_layer_xy_coords = self.substrate.positions[top_layer_indices][:,0:2]
+
+        sampling_xy_coords = copy.deepcopy(top_layer_xy_coords)
+
+        for i in range(resolution_index):
+            sampling_x = sampling_xy_coords[:,0]
+            sampling_y = sampling_xy_coords[:,1]
+            new_x = ( sampling_x[1:] + sampling_x[:1] ) / 2
+            new_y = ( sampling_y[1:] + sampling_y[:1] ) / 2
+            sampling_x = np.append((sampling_x,new_x),axis=0)
+            sampling_y = np.append((sampling_y,new_y),axis=0)
+            sampling_xy_coords = np.array([sampling_x,sampling_y]).T
+        
+        for coordinate in sampling_xy_coords:
+
+            pass
 
 
 
-
-    def build_cluster_interface(self):
-        pass
 
 
 
     def build_bulk_interface(self,
-                             water_thickness = 15,
                              water_substrate_gap = 2,
                              optimiser = BFGS,
                              optimise_interfacial_water=True,
@@ -182,9 +267,9 @@ class InterfaceBuilder:
         
         new_substrate = copy.deepcopy(self.substrate)
         
-        water_slab = self.create_water_slab(water_thickness,
-                                            density = 1,
-                                            z_expansion_factor=1,
+        water_slab = self.create_water_slab(water_thickness=self.water_thickness,
+                                            density = self.water_density,
+                                            z_expansion_factor=1.3,
                                             fill_using_optimisation=optimise_water_before_adding,
                                             )
         
@@ -227,9 +312,9 @@ class InterfaceBuilder:
 
         # Taking the substrate and creating a new object without all the tags etc:
         new_substrate = ase.Atoms(symbols=substrate.symbols,
-                                    positions=self.substrate.positions,
-                                    cell=self.substrate.cell,
-                                    pbc=self.substrate.pbc)
+                                    positions=substrate.positions,
+                                    cell=substrate.cell,
+                                    pbc=substrate.pbc)
 
 
         # Top of interface moved to z_interface = middle of cell

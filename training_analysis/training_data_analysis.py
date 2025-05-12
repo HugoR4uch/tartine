@@ -41,12 +41,6 @@ class TrainingDataAnalyser:
         """
 
 
-
-        if self.num_test_set_frames == 0:
-            add_to_test_set = False
-
-
-
         # These stats will be printed at the end
         num_frames_loaded = 0
         num_unconverged_frames = 0 
