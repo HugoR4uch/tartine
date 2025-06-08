@@ -13,6 +13,7 @@ class Analyser:
     
     def __init__(self,
                  frame,
+                 substrate_indices=None,
                  r_OO_c = 3.5,
                  r_OH_c = 2.4,
                  theta_c = 120):
@@ -20,6 +21,18 @@ class Analyser:
                 
         self.frame = frame
         self.num_atoms = len(frame)
+
+        if substrate_indices is not None:
+            for atom in frame:
+                if atom.index in substrate_indices:
+                    atom.tag = 0
+                else:
+                    atom.tag = 1
+
+        self.num_water_molecules = len([atom for atom in frame if atom.symbol == 'O' and atom.tag == 1])
+        print(f"Number of water molecules in frame: {self.num_water_molecules}")
+        if self.num_water_molecules == 0:
+            raise ValueError("No water molecules found in frame. Make sure tags are correct or add substrate.")
 
 
         # 1 if atom belongs to water molecule, 0 otherwise
@@ -53,7 +66,7 @@ class Analyser:
             H_indices = self.aqua_H_indices
 
 
-        voronoi_dictionary = {i: [] for i in self.O_indices}
+        voronoi_dictionary = {i: [] for i in O_indices}
         
         for H_index in H_indices:                       
             OH_distances=self.distance_matrix[H_index][list(O_indices)] 
@@ -71,8 +84,52 @@ class Analyser:
 
 
 
+    def find_H_species(self,O_indices=None,H_indices=None,r_OH_ion=2,r_H2_threshold=2):
 
-    
+        if O_indices is None:
+            O_indices = self.aqua_O_indces
+        if H_indices is None:
+            H_indices = self.aqua_H_indices
+
+        if self.voronoi_dict is None:
+            voronoi_dict = self.get_voronoi_dict(O_indices,H_indices)
+        else:
+            voronoi_dict = self.voronoi_dict
+
+
+        print(f"Voronoi dict: {voronoi_dict}")
+
+        lone_H_indices = []
+
+        for key, value in voronoi_dict.items():
+            if len(value)>2:
+                print(f"Key: {key}, Value: {value}")
+
+                furthest_H_index = None
+                largest_distance = 0
+                for index in value:
+                    distance = self.frame.get_distances(key,index,mic=True)[0]
+                    if distance > largest_distance:
+                        largest_distance = distance
+                        furthest_H_index = index
+
+                if largest_distance > r_OH_ion:
+                    lone_H_indices.append(furthest_H_index)                
+        
+            print(lone_H_indices)
+
+        H_map = {str(H_index) : [] for H_index in lone_H_indices}
+
+        for H_index in lone_H_indices:
+            for H_index_2 in [H_index_2 for H_index_2 in lone_H_indices if H_index_2>H_index]:
+                distance = self.frame.get_distances(H_index,H_index_2,mic=True)[0]
+                if distance < r_H2_threshold:
+                    H_map[str(H_index)].append(str(H_index_2))
+
+
+        return H_map
+
+    # def find_H_species
 
     # def find_hydronium_O_indices(self,frame_index,voronoi_dict,distance_matrix=None):
     #     hydronium_mask = [ len(voronoi_dict[i]) > 2 for i in self.water_O_indices ]
