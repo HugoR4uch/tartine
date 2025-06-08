@@ -18,7 +18,7 @@ class Analyser:
                  r_OH_c = 2.4,
                  theta_c = 120):
         
-                
+
         self.frame = frame
         self.num_atoms = len(frame)
 
@@ -41,7 +41,7 @@ class Analyser:
         self.substrate_O_indices = {index for index in np.arange(0,self.num_atoms) if frame[index].symbol == 'O' and frame[index].tag == 0}
         self.substrate_H_indices = {index for index in np.arange(0,self.num_atoms) if frame[index].symbol == 'H' and frame[index].tag == 0}
         #Aqua denotes HO, H2O, H3O, etc. 
-        self.aqua_O_indces = self.O_indices - self.substrate_O_indices
+        self.aqua_O_indices = self.O_indices - self.substrate_O_indices
         self.aqua_H_indices = self.H_indices - self.substrate_H_indices
 
 
@@ -61,7 +61,7 @@ class Analyser:
         #Returns dictionary of O_indices with H_indices in their voronoi region
         
         if O_indices is None:
-            O_indices = self.aqua_O_indces
+            O_indices = self.aqua_O_indices
         if H_indices is None:
             H_indices = self.aqua_H_indices
 
@@ -87,7 +87,7 @@ class Analyser:
     def find_H_species(self,O_indices=None,H_indices=None,r_OH_ion=2,r_H2_threshold=2):
 
         if O_indices is None:
-            O_indices = self.aqua_O_indces
+            O_indices = self.aqua_O_indices
         if H_indices is None:
             H_indices = self.aqua_H_indices
 
@@ -97,13 +97,10 @@ class Analyser:
             voronoi_dict = self.voronoi_dict
 
 
-        print(f"Voronoi dict: {voronoi_dict}")
-
         lone_H_indices = []
 
         for key, value in voronoi_dict.items():
             if len(value)>2:
-                print(f"Key: {key}, Value: {value}")
 
                 furthest_H_index = None
                 largest_distance = 0
@@ -116,48 +113,64 @@ class Analyser:
                 if largest_distance > r_OH_ion:
                     lone_H_indices.append(furthest_H_index)                
         
-            print(lone_H_indices)
 
-        H_map = {str(H_index) : [] for H_index in lone_H_indices}
+        H_map = {H_index : [] for H_index in lone_H_indices}
 
         for H_index in lone_H_indices:
             for H_index_2 in [H_index_2 for H_index_2 in lone_H_indices if H_index_2>H_index]:
                 distance = self.frame.get_distances(H_index,H_index_2,mic=True)[0]
                 if distance < r_H2_threshold:
-                    H_map[str(H_index)].append(str(H_index_2))
+                    H_map[H_index].append(str(H_index_2))
 
 
         return H_map
 
-    # def find_H_species
 
-    # def find_hydronium_O_indices(self,frame_index,voronoi_dict,distance_matrix=None):
-    #     hydronium_mask = [ len(voronoi_dict[i]) > 2 for i in self.water_O_indices ]
-    #     hydronium_O_indices = self.water_O_indices[hydronium_mask]
-    #     return hydronium_O_indices
+    def get_dissociation_statistics(self):
 
+        H_count=0
+        H2_count=0
+        H2O_count=0
+        H3O_count=0
+        OH_count=0
+        O_count=0
 
-    # def get_hydroxyl_indices():
-
-    # def get_water_indices():
-    
-    # def find_free_proton_indices(self,frame_index,voronoi_dict,hydronium_O_indices,distance_matrix=None):
-    #     if distance_matrix is None:
-    #         distance_matrix= self.trajectory[frame_index].get_all_distances(mic=True)
-
-
-        #Attach furtherst H in voronoi region of each O
-        # hydronium_protons = np.array([])
-        # for i in hydronium_O_indices:
-        #     H_indices = voronoi_dict[i]
-        #     distances = [distance_matrix[i][j] for j in H_indices]
-        #     largest_distance = max(distances)
-        #     tolerance=1e-7
-        #     furthest_H_index = np.where( abs (distance_matrix[i] - largest_distance )< tolerance )[0][0]
-        #     hydronium_protons =np.append(hydronium_protons,furthest_H_index)
+        H_species = self.find_H_species()
         
-        # return hydronium_protons
+        lone_H_indices = H_species.keys()
 
+        for H_index, H_list in H_species.items():
+            num_H = len(H_list)
+            if num_H == 0:
+                H_count += 1
+            elif num_H == 1:
+                H2_count += 0.5
+
+
+        voronoi_dict = self.get_voronoi_dict()
+
+        for i in self.aqua_O_indices:
+
+            local_H_list = [H_index for H_index in voronoi_dict[i] if H_index not in lone_H_indices]
+            num_H= len(local_H_list) 
+
+            if num_H == 0:
+                O_count += 1
+            elif num_H == 1:
+                OH_count += 1
+            elif num_H == 2:
+                H2O_count += 1
+            elif num_H == 3:
+                H3O_count += 1
+        
+        return {
+            "H_count": H_count,
+            "H2_count": H2_count,
+            "H2O_count": H2O_count,
+            "H3O_count": H3O_count,
+            "OH_count": OH_count,
+            "O_count": O_count
+        }
 
 
     def get_water_dipole_moment(self,water_O_index):
@@ -272,7 +285,7 @@ class Analyser:
         # Specify which Os to analyse
         # By default, only water O
         if O_analyse is None:
-            O_analyse = self.aqua_O_indces
+            O_analyse = self.aqua_O_indices
 
         connectivity_matrix = {}
 

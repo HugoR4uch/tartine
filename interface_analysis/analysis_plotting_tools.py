@@ -596,52 +596,90 @@ def plot_H_bonds_vs_z(name,
     plt.savefig(H_bond_vs_z_figures_dir + '/' + name+ '_H_bonds_vs_z.png')
     plt.close()
 
-def get_dissociation_statistics(name,trajectories,fragments_plots_dir= './fragments_plots'):
+def get_dissociation_statistics(trajectories,sampling_interval=10):
+
+    """
+    Code to find overall counts of: H, H2, H2O, H3O+, OH-, O for trajectories
+    """
+
+    H_count=0
+    H2_count=0
+    H2O_count=0
+    H3O_count=0
+    OH_count=0
+    O_count=0
+    frame_count = 0
+
+    for traj in trajectories:
+        for frame in tqdm(traj[::sampling_interval], desc=f"Processing frames for dissociation statistics"):
+            
+            frame_count += 1
+
+            # num_water_molecules = len(water_O_indices)
+            analyser = water_analyser.Analyser(frame)
+
+            dissociation_stats = analyser.get_dissociation_statistics()
+
+            H_count += dissociation_stats["H_count"]
+            H2_count += dissociation_stats["H2_count"]
+            H2O_count += dissociation_stats["H2O_count"]
+            H3O_count += dissociation_stats["H3O_count"]
+            OH_count += dissociation_stats["OH_count"]
+            O_count += dissociation_stats["O_count"]
+
+
+    return {
+        "H_count": H_count,
+        "H2_count": H2_count,
+        "H2O_count": H2O_count,
+        "H3O_count": H3O_count,
+        "OH_count": OH_count,
+        "O_count": O_count,
+        "frame_count": frame_count,
+    }
+
+
+def plot_dissociation_statistics(name,
+                                 dissociation_stats,
+                                 fragments_plots_dir='./fragments_plots',
+                                 ):
+
+
+
+    # Extract counts
+    counts = np.array([
+        dissociation_stats["H_count"],
+        dissociation_stats["H2_count"],
+        # dissociation_stats["H2O_count"],
+        dissociation_stats["H3O_count"],
+        dissociation_stats["OH_count"],
+        dissociation_stats["O_count"]
+    ])
+
+    num_water = dissociation_stats["H2O_count"] / dissociation_stats["frame_count"]
+
+    counts = counts/ dissociation_stats["frame_count"] 
+
+    categories = ['H', 'H2', 'H3O+', 'OH-', 'O']
 
     if not os.path.exists(fragments_plots_dir):
         os.makedirs(fragments_plots_dir)
-    print('Calculating dissociation statistics for:', name)
-
-    occupancies = {}
-
-    for traj in trajectories:
-        for frame in tqdm(traj[::10]):
-            water_O_indices = [atom.index for atom in frame if atom.tag == 1 and atom.symbol == 'O']
-            num_water_molecules = len(water_O_indices)
-            analyser = water_analyser.Analyser(frame)
-            voronoi_dict = analyser.get_voronoi_dict()
-            for i in water_O_indices:
-                local_H_list = voronoi_dict[i]
-                num_H= len(local_H_list) 
-                if not num_H in occupancies:
-                    occupancies[num_H]=0
-                else:
-                    occupancies[num_H]+=1
-            
-
-    occupancy_levels = sorted(occupancies.keys())
-    counts = [occupancies[o] for o in occupancy_levels]
-    total = sum(counts)
-    # Normalize counts to get occupancy levels
-    counts = [count / total for count in counts]
-
-    # Convert occupancy levels to strings to make them categorical
-    categories = [str(o) for o in occupancy_levels]
-
-    
-
 
     # Plot
     plt.figure(figsize=(6, 4))
-    plt.bar(categories, counts, color='skyblue', edgecolor='black')
-    plt.xlabel('Number of Hydrogens (Categorical)')
-    plt.ylabel('Count')
-    plt.title('Distribution of Hydrogen Occupancy')
+    bars = plt.bar(categories, counts, color='skyblue', edgecolor='black')
+    plt.xlabel('Species per {num_water:.2f} Water Molecules'.format(num_water=num_water))
+    plt.ylabel('Average Counts per Frame')
+    plt.title('Species Count in {name} Simulation'.format(name=name))
     plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+    # Add count labels above bars
+    for bar, count in zip(bars, counts):
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width() / 2.0, height,
+                f'{count:.3f}', ha='center', va='bottom', fontsize=9)
+
     plt.tight_layout()
-    plt.savefig(fragments_plots_dir + '/' + name + '_hydrogen_occupancy.png')
+    plt.savefig(fragments_plots_dir + '/' + name + 'fragment_occupancy.png')
     plt.close()
-    print('Occupancy levels:',occupancy_levels)
-
-
 
