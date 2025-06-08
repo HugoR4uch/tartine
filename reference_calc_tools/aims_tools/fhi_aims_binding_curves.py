@@ -389,7 +389,9 @@ class BindingCurveMaker:
                  calc_dir,
                  substrate_file,
                  substrate_name=None,
-                 adsorp_element=None):
+                 adsorp_element=None,
+                 z_approach_vals=None,
+                 ):
         self.calc_dir = calc_dir
         self.substrate_name=substrate_name
 
@@ -404,8 +406,18 @@ class BindingCurveMaker:
 
 
 
-        # self.z_approach_vals  = np.array([2.1,2.3,2.5,2.7,2.9,3.1,3.3,3.5]) # 8 points
-        self.z_approach_vals  = np.array([2.1,2.3,2.5,2.7,2.9,3.1,3.3,3.5,4,4.5,5,5.5,6,6.5,10]) # 8 points
+        if z_approach_vals is None:
+            z_approach = np.linspace(1,6,14)
+            #Adding point where water is 10 A above the substrate:
+            z_approach = np.append(z_approach,10)
+            self.z_approach_vals = z_approach
+        else:
+            z_approach = z_approach_vals
+            if max(z_approach_vals) < 10:
+                z_approach = np.append(z_approach,10)
+            self.z_approach_vals = z_approach
+        
+        
         self.vacuum_width = 15.0
         self.binding_configs = []
         self.n_atoms = len(self.substrate)
@@ -495,9 +507,10 @@ class  AIMSBindingCurveMaker(BindingCurveMaker):
     
     def __init__(self,
                  calc_dir,
-                 substrate_name,
                  substrate_file,
+                 substrate_name,
                  adsorp_element=None,
+                 z_approach_vals=None,
                  time_hrs = 1.5,
                  qos='standard',
                  n_tasks=128,
@@ -506,7 +519,13 @@ class  AIMSBindingCurveMaker(BindingCurveMaker):
                  scf_params=None):
             
         
-        super().__init__(calc_dir,substrate_file,substrate_name,adsorp_element)
+        super().__init__(calc_dir,
+                         substrate_file,
+                         substrate_name,
+                         adsorp_element,
+                         z_approach_vals)
+
+
         self.time_hrs = time_hrs
         self.qos = qos
         self.n_tasks = n_tasks
@@ -519,7 +538,7 @@ class  AIMSBindingCurveMaker(BindingCurveMaker):
 
         if scf_params is None:
             self.mixer= 'pulay'
-            self.charge_mixing = '0.1' 
+            self.charge_mixing = '0.05' 
             self.occupation_type= 'fermi'
             self.smearing = 0.2
             self.preconditioner = 2
@@ -625,9 +644,19 @@ class  AIMSBindingCurveMaker(BindingCurveMaker):
 
 
 class MACEBindingCurveMaker(BindingCurveMaker):
-    def __init__(self,calc_dir,substrate_file,substrate_name=None,adsorp_element=None,
-                  model='/home/hr492/michaelides-share/hr492/Projects/tartine_project/mace_models/mace_agnesi_medium.model'):
-        super().__init__(calc_dir,substrate_file,substrate_name,adsorp_element)
+    def __init__(self,
+                 calc_dir,
+                 substrate_file,
+                 substrate_name=None,
+                 adsorp_element=None,
+                 z_approach_vals=None,
+                 model='/home/hr492/michaelides-share/hr492/Projects/tartine_project/mace_models/mace_agnesi_medium.model'):
+        
+        super().__init__(calc_dir,
+                         substrate_file,
+                         substrate_name,
+                         adsorp_element,
+                         z_approach_vals)
 
         self.model = model
         self.interface_energies = []

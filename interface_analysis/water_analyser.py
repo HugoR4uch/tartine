@@ -13,7 +13,6 @@ class Analyser:
     
     def __init__(self,
                  frame,
-                 atoms_in_water=None,
                  r_OO_c = 3.5,
                  r_OH_c = 2.4,
                  theta_c = 120):
@@ -24,11 +23,6 @@ class Analyser:
 
 
         # 1 if atom belongs to water molecule, 0 otherwise
-        if atoms_in_water is None:
-            self.atoms_in_water = set( np.arange(0,self.num_atoms) )
-        else:
-            self.atoms_in_water = atoms_in_water
-
         self.O_indices = {index for index in np.arange(0,self.num_atoms) if frame[index].symbol == 'O'} 
         self.H_indices = {index for index in np.arange(0,self.num_atoms) if frame[index].symbol == 'H'}
         self.substrate_O_indices = {index for index in np.arange(0,self.num_atoms) if frame[index].symbol == 'O' and frame[index].tag == 0}
@@ -54,9 +48,9 @@ class Analyser:
         #Returns dictionary of O_indices with H_indices in their voronoi region
         
         if O_indices is None:
-            O_indices = self.O_indices
+            O_indices = self.aqua_O_indces
         if H_indices is None:
-            H_indices = self.H_indices
+            H_indices = self.aqua_H_indices
 
 
         voronoi_dictionary = {i: [] for i in self.O_indices}
@@ -74,6 +68,8 @@ class Analyser:
             self.voronoi_dict = voronoi_dictionary
 
         return voronoi_dictionary
+
+
 
 
     
@@ -106,7 +102,32 @@ class Analyser:
         # return hydronium_protons
 
 
+
+    def get_water_dipole_moment(self,water_O_index):
+        """
+        Assume water_O_index belongs to water, and not another species.
+        """
+
+        if self.voronoi_dict is None:
+            voronoi_dict = self.get_voronoi_dict()
+        else:
+            voronoi_dict = self.voronoi_dict
+
+        H_atom_indices = voronoi_dict[water_O_index]
+
+        if len(H_atom_indices) != 2:
+            raise ValueError(f"Water molecule with O index {water_O_index} does not have 2 H atoms in its voronoi region. It has {len(H_atom_indices)} H atoms.")
+        
+        OH1_vec = self.frame.get_distances(water_O_index,H_atom_indices[0],mic=True,vector=True)[0]
+        OH2_vec = self.frame.get_distances(water_O_index,H_atom_indices[1],mic=True,vector=True)[0]
+        dipole_vector = OH1_vec + OH2_vec 
+
+        normalised_dip_vec =  dipole_vector / np.linalg.norm(dipole_vector)
+        return normalised_dip_vec
     
+
+
+
     """ Methods for H-bond network analyis """
 
 
@@ -192,15 +213,21 @@ class Analyser:
     def get_H_bond_connectivity(self,O_analyse =None,directed=True):
         
         # Specify which Os to analyse
+        # By default, only water O
         if O_analyse is None:
-            O_analyse = self.O_indices
+            O_analyse = self.aqua_O_indces
 
         connectivity_matrix = {}
 
         for O_index_i in O_analyse:
             for O_index_j in O_analyse:
                 
-                H_bond=self.check_H_bond(O_index_i,O_index_j)
+                if directed:
+                    # Check if O_index_i is donor and O_index_j is acceptor
+                    H_bond=self.check_H_bond(O_index_i,O_index_j)
+                else:
+
+                    H_bond=self.check_H_bond(O_index_i,O_index_j) or self.check_H_bond(O_index_j,O_index_i)
 
                 if not O_index_i in connectivity_matrix:
                     connectivity_matrix[O_index_i] = {}

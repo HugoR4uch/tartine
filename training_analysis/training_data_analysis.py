@@ -27,10 +27,13 @@ class TrainingDataAnalyser:
 
     def load_training_frames(self,
                              training_frames_dir,
+                             selection_fraction=1.0,
+                             selection_type='interval',
                              add_to_test_set=False,
                              isolated_atoms=False,
                              frames_to_exclude=None,
-                             system_name=None,):
+                             system_name=None,
+                             ):
         
         """
         Takes ABSOLUTE path to directory with DFT calc dirs.
@@ -62,9 +65,31 @@ class TrainingDataAnalyser:
 
         # Loads Atoms objects from calc dirs
 
-        print('awdadw',os.listdir(training_frames_dir))
 
-        for frame_name in os.listdir(training_frames_dir):
+        ref_calc_dirs = os.listdir(training_frames_dir)
+
+        if selection_fraction < 1.0:
+            
+            num_selected_calcs = int(len(ref_calc_dirs) * selection_fraction)
+            if num_selected_calcs == 0:
+                raise Exception('WARNING: No frames selected! Selection fraction is too low!')
+
+            
+
+            if selection_type == 'interval':
+                # Selecting every nth frame
+                selected_ref_calc_dirs = ref_calc_dirs[::int(1/selection_fraction)]
+            elif selection_type == 'random':
+                # Randomly selecting a fraction of frames
+                selected_ref_calc_dirs = np.random.choice(ref_calc_dirs, num_selected_calcs, replace=False)
+        
+        else:
+            # Selecting all frames
+            selected_ref_calc_dirs = ref_calc_dirs
+
+            
+        for frame_name in selected_ref_calc_dirs:
+
             print('loading calc for:',frame_name)
             calc_dir_path = os.path.join(training_frames_dir,frame_name)
             if os.path.isdir(calc_dir_path):

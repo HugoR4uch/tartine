@@ -17,7 +17,7 @@ import ase.data
 from ase.constraints import StrainFilter
 from scipy.signal import find_peaks
 
-
+from . import water_analyser
 
 
 
@@ -33,7 +33,7 @@ def find_atomic_trajectories(input_trajectory, atom_indices = None,relative_to_C
         #Find traj of COM
         COM_trajectory = find_COM_trajectory(input_trajectory)
 
-    if atom_indices == None:
+    if atom_indices is None:
         atom_indices = np.arange(0,len(input_trajectory[0]),1)
 
     frame_indices=np.arange(0,len(input_trajectory),1) #if no frame indices specified, assume whole trajectory
@@ -93,7 +93,6 @@ def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=F
     #Finding densities for each independent trajectory of a system
     #Will spit out mean densty(z) and corresponding error bars 
     for slab in trajectories:
-        
 
         input_trajectory = copy.deepcopy(slab) # only sample up to max_T
         #print(max_T_val)
@@ -166,44 +165,90 @@ def get_z_density_profile(trajectories,substrate,z_min,z_max,plot_all_profiles=F
     else:
         return bin_centers, average_density, errors 
 
+def get_interfacial_z_vs_dipole_angles(frame,substrate,num_layers=None):
+
+    substrate_top_layer_indices = find_top_layer_indices(substrate,num_layers)
+    substrate_top_layer_z_vals  =frame[substrate_top_layer_indices].positions[:,2] 
+    substrate_top_layer_z_val = np.mean(substrate_top_layer_z_vals)
+    frame_z_vals = frame.positions[:,2]
+    frame_interfacial_z_vals = frame_z_vals - substrate_top_layer_z_val
 
 
-# def get_z_density_turning_points(z_values, density_profile, prominence=0.3):
-
-#     # This functions is deceptive. Could be called get first peak width, or something like that.
-#     # The real get_z_turning_points should actually return: peaks, troughs.
+    num_substrate_atoms = len(substrate) 
+    frame_analyser = water_analyser.Analyser(frame)
 
 
-#     # Find the first z value with a non-zero density
-#     density_profile = np.array(density_profile)
-#     non_zero_indices = np.where(density_profile > 0)[0]
-#     first_non_zero_index = non_zero_indices[0]
-#     first_non_zero_z = z_values[first_non_zero_index]
+    # We assume that the normal vector is (0,0,1)
+    normal_vector = np.array([0, 0, 1])
 
-#     # Find peaks in the density profile
-#     peaks, _ = find_peaks(density_profile, distance=10, prominence=prominence)
+    water_O_indices = [ i for i in range(len(frame)) if frame[i].symbol == 'O' and i >= num_substrate_atoms]
+
+    voronoi_dict = frame_analyser.get_voronoi_dict(water_O_indices)
     
-#     if len(peaks) == 0:
-#         first_trough_z= None
-#     else:
+    indices = []
+    interfacial_angles = []
+    interfacial_z_vals = []
 
-#         # Get the first peak
-#         print('Peaks: ',peaks)
-#         first_peak_index = peaks[0]
-#         first_peak_z = z_values[first_peak_index]
+    for atom_index in water_O_indices:
+        
+        indices.append(atom_index)
 
-#         # Find troughs (local minima) in the density profile
-#         troughs, _ = find_peaks(-density_profile, distance=10, prominence=prominence)
-#         if len(troughs) == 0:
-#             first_trough_z= None
-#         else:
-#         # Find the first trough after the first peak
-#             first_trough_index = troughs[troughs > first_peak_index][0]
-#             first_trough_z = z_values[first_trough_index]
-
-#         return first_non_zero_z, first_trough_z
+        z = frame_interfacial_z_vals[atom_index]
+        interfacial_z_vals.append( z ) 
+ 
+        H_indices = voronoi_dict[atom_index]
+        if len(H_indices) != 2:
+            continue
 
         
+        water_dipole = frame_analyser.get_water_dipole_moment(atom_index)
+        
+        # We normalise just to make sure
+        dot_product = np.dot(water_dipole, normal_vector) / (np.linalg.norm(water_dipole) * np.linalg.norm(normal_vector))
+
+        angle = np.arccos(dot_product) * 180 / np.pi
+
+        interfacial_angles.append( angle) 
+
+
+    return indices, interfacial_z_vals, interfacial_angles
+
+
+
+def get_dipole_vs_interface_angles(frame,substrate,):
+
+    num_substrate_atoms = len(substrate) 
+    frame_analyser = water_analyser.Analyser(frame)
+
+
+    # We assume that the normal vector is (0,0,1)
+    normal_vector = np.array([0, 0, 1])
+
+    water_O_indices = [ i for i in range(len(frame)) if frame[i].symbol == 'O' and i >= num_substrate_atoms]
+
+    voronoi_dict = frame_analyser.get_voronoi_dict(water_O_indices)
+
+    interface_dipole_angles = {}
+
+    for atom_index in water_O_indices:
+
+        H_indices = voronoi_dict[atom_index]
+        if len(H_indices) != 2:
+            continue
+
+        
+        water_dipole = frame_analyser.get_water_dipole_moment(atom_index)
+        
+        # We normalise just to make sure
+        dot_product = np.dot(water_dipole, normal_vector) / (np.linalg.norm(water_dipole) * np.linalg.norm(normal_vector))
+
+        angle = np.arccos(dot_product) * 180 / np.pi
+
+        interface_dipole_angles[atom_index] = angle
+
+
+    return interface_dipole_angles
+
 
 def get_xy_RDF(trajectories,
                substrate,
@@ -249,23 +294,6 @@ def get_xy_RDF(trajectories,
 
                 all_O_atom_z_val_displacements = np.array(all_O_traj_relative_to_interface).flatten()
                 data = all_O_atom_z_val_displacements 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
