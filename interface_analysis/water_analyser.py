@@ -30,7 +30,6 @@ class Analyser:
                     atom.tag = 1
 
         self.num_water_molecules = len([atom for atom in frame if atom.symbol == 'O' and atom.tag == 1])
-        print(f"Number of water molecules in frame: {self.num_water_molecules}")
         if self.num_water_molecules == 0:
             raise ValueError("No water molecules found in frame. Make sure tags are correct or add substrate.")
 
@@ -85,9 +84,12 @@ class Analyser:
 
 
     def find_H_species(self,O_indices=None,H_indices=None,r_OH_ion=2,r_H2_threshold=2):
+        """
+        Finds species like H2 and lone H (detached from water molecules).
+        """
 
         if O_indices is None:
-            O_indices = self.aqua_O_indices
+            O_indices = self.O_indices
         if H_indices is None:
             H_indices = self.aqua_H_indices
 
@@ -126,6 +128,7 @@ class Analyser:
         return H_map
 
 
+
     def get_dissociation_statistics(self):
 
         H_count=0
@@ -134,6 +137,7 @@ class Analyser:
         H3O_count=0
         OH_count=0
         O_count=0
+
 
         H_species = self.find_H_species()
         
@@ -195,6 +199,36 @@ class Analyser:
         normalised_dip_vec =  dipole_vector / np.linalg.norm(dipole_vector)
         return normalised_dip_vec
     
+
+
+    def get_water_H_vectors(self,water_O_indices=None):
+        """
+        Returns dict, with each O index as a key and a list of OH vectors as the values. 
+        """
+
+        if water_O_indices is None:
+            water_O_indices = self.aqua_O_indices
+
+        if self.voronoi_dict is None:
+            voronoi_dict = self.get_voronoi_dict(water_O_indices)
+        else:
+            voronoi_dict = self.voronoi_dict
+       
+        H_vectors = {}
+
+        for water_O_index in water_O_indices:
+
+            H_atom_indices = voronoi_dict[water_O_index]
+
+            for H_index in H_atom_indices:
+                if water_O_index not in H_vectors:
+                    H_vectors[water_O_index] = []
+                
+                OH_vec = self.frame.get_distances(water_O_index,H_index,mic=True,vector=True)[0]
+                H_vectors[water_O_index].append(OH_vec)
+
+
+        return H_vectors
 
 
 
@@ -280,18 +314,20 @@ class Analyser:
                     
 
 
-    def get_H_bond_connectivity(self,O_analyse =None,directed=True):
+    def get_H_bond_connectivity(self,O_donors_analyse=None,O_acceptors_analyse =None,directed=True):
         
         # Specify which Os to analyse
         # By default, only water O
-        if O_analyse is None:
-            O_analyse = self.aqua_O_indices
+        if O_donors_analyse is None:
+            O_donors_analyse = self.aqua_O_indices
+        if O_acceptors_analyse is None:
+            O_acceptors_analyse = self.aqua_O_indices
 
         connectivity_matrix = {}
 
-        for O_index_i in O_analyse:
-            for O_index_j in O_analyse:
-                
+        for O_index_i in O_donors_analyse:
+            for O_index_j in O_acceptors_analyse:
+
                 if directed:
                     # Check if O_index_i is donor and O_index_j is acceptor
                     H_bond=self.check_H_bond(O_index_i,O_index_j)

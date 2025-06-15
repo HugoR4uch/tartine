@@ -11,25 +11,20 @@ import time
 import os
 from . import water_analyser
 from mace.calculators import MACECalculator
-from ase.visualize.plot import plot_atoms
 
 
 
-def plot_atoms(atoms,rotation=('0x,0y,0z')):
-    
-    fig, axes = plt.subplots(1, 2, figsize=(8, 8))  
-    plot_atoms(atoms, ax=axes, rotation=('0x,0y,0z'))
-
-
-
-
-def bulk_interface_multi_builder(substrate_dir,
+def bulk_interface_multi_builder(
+                            model_path,
+                            substrate_dir,
                             intersubstrate_gap,
                             water_substrate_gap,
                             num_replicas=1,
                             thickness = {},
                             density = {},
                             optimise_interfacial_water=True,
+                            substrates_whitelist=None,
+                            substrates_blacklist=None,
                             ):
     
     input_filenames = os.listdir(substrate_dir)
@@ -37,7 +32,17 @@ def bulk_interface_multi_builder(substrate_dir,
 
     for filename in input_filenames:
 
+
         interface_name = filename.split('.')[0]
+
+        if substrates_whitelist is not None:
+            if interface_name not in substrates_whitelist:
+                print('Skipping',interface_name,'as it is not in the whitelist')
+                continue
+        if substrates_blacklist is not None:
+            if interface_name in substrates_blacklist:
+                print('Skipping',interface_name,'as it is in the blacklist')
+                continue
 
         if type(thickness) == dict:
             if interface_name in thickness:
@@ -67,7 +72,8 @@ def bulk_interface_multi_builder(substrate_dir,
 
         
 
-            interface_builder = InterfaceBuilder(substrate,
+            interface_builder = InterfaceBuilder(model_path,
+                                                 substrate,
                                                  water_thickness,
                                                  water_density,
                                                  intersubstrate_gap,
@@ -162,6 +168,7 @@ def is_water_coordination_physical(system,substrate_indices = None):
 
 class InterfaceBuilder:
     def __init__(self,
+                 model_path,
                  substrate,
                  water_thickness,
                  water_density,
@@ -169,7 +176,7 @@ class InterfaceBuilder:
                  name=None):
         
 
-                
+        self.model_path = model_path
         self.interface = None
         self.name = name
         self.intersubstrate_gap = intersubstrate_gap
@@ -186,8 +193,6 @@ class InterfaceBuilder:
         self.substrate = substrate
 
         self.num_substrate_atoms = len(self.substrate)
-        model = '/home/hr492/michaelides-share/hr492/Projects/tartine_project/data/mace_models/tartine_II_stagetwo_compiled.model'
-        self.calculator = MACECalculator(model_path=model,device='cuda')
 
 
         #Finding substrate thickness
@@ -200,58 +205,6 @@ class InterfaceBuilder:
         
 
         self.substrate = self.shift_substrate_to_cell_centre(substrate)
-
-    def build_cluster_interface(self,
-                                resolution_index = 2,
-                                num_water = 1,
-                                num_layers= None,
-                                z_start = 3,
-                                
-                                ):
-        
-
-        raise NotImplementedError("Cluster interface building not yet implemented")
-
-        """
-        Builds interface with a cluster of molecules on top of the substrate.
-        
-        Parameters
-        ----------
-        resolution_index : float
-            Resolution for possible x,y coordinates of the cluster.
-            The higher the resolution, the more possible coordinates.
-            The number of possible coordinates is 2**resolution_index.
-            For example, resolution 1 means water can be placed on every top layer atom;
-            resolution 2 means water can be placed between every two top layer atoms;
-            resolution 3 means water can be placed between the atoms and the midpoints between atoms.
-        num_water : int
-            Number of water molecules in the cluster.
-        num_layser : int
-            Number of layers in the cluster. If None, the cluster is built with a single layer.
-
-        """
-
-
-        top_layer_indices = find_top_layer_indices(self.substrate,num_layers)
-
-        top_layer_xy_coords = self.substrate.positions[top_layer_indices][:,0:2]
-
-        sampling_xy_coords = copy.deepcopy(top_layer_xy_coords)
-
-        for i in range(resolution_index):
-            sampling_x = sampling_xy_coords[:,0]
-            sampling_y = sampling_xy_coords[:,1]
-            new_x = ( sampling_x[1:] + sampling_x[:1] ) / 2
-            new_y = ( sampling_y[1:] + sampling_y[:1] ) / 2
-            sampling_x = np.append((sampling_x,new_x),axis=0)
-            sampling_y = np.append((sampling_y,new_y),axis=0)
-            sampling_xy_coords = np.array([sampling_x,sampling_y]).T
-        
-        for coordinate in sampling_xy_coords:
-
-            pass
-
-
 
 
 
@@ -396,14 +349,14 @@ class InterfaceBuilder:
     def optimise_water(self,
                        input_water_slab,
                        optimiser=BFGS,
-                       max_steps=1000,
+                       max_steps=5000,
                        ):
         
         # Optimises water slab. 
         water = copy.deepcopy(input_water_slab)
-        water.calc = self.calculator
+        water.calc = MACECalculator(model_path=self.model_path,device='cuda')
         dyn = optimiser(water)
-        convergence = dyn.run(fmax=0.1,steps=max_steps)
+        convergence = dyn.run(fmax=0.05,steps=max_steps)
         if not convergence:
             raise ValueError('Water geometry optimisation did not converge')
 
@@ -418,7 +371,7 @@ class InterfaceBuilder:
         
 
         interface = copy.deepcopy(input_interface)
-        interface.calc = self.calculator
+        interface.calc = MACECalculator(model_path=self.model_path,device='cuda')
 
 
         #Freezing substrate (either whole or bottom half)
@@ -457,7 +410,7 @@ class InterfaceBuilder:
         dyn = optimiser(interface,trajectory=opt_traj_name)
 
         start = time.time()
-        convergence = dyn.run(fmax=0.1,steps=max_steps)
+        convergence = dyn.run(fmax=0.05,steps=max_steps)
         end = time.time()
 
         opt_traj = ase.io.read(opt_traj_name,index = ':')
