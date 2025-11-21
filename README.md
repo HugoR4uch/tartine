@@ -2,6 +2,8 @@
 
 Tools for **building**, **simulating**, and **analyzing** water–solid interfaces.
 
+This package is **still being developed, so be careful - it will probably break**. 
+
 `tartines` provides a lightweight workflow for:
 - Constructing atomistic water–solid interface models
 - Running molecular simulations using external engines (e.g., ASE-compatible calculators)
