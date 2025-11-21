@@ -1,6 +1,0 @@
-ase
-#ase==1.0.1 ... gives the version
-numpy
-matpotlib.pyplot
-
- 

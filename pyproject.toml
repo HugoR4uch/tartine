@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tartines"
+version = "0.1.0"
+description = "Tools for working with density profiles and interfaces"
+authors = [
+  { name = "Your Name", email = "you@example.com" },
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "numpy",
+  "ase",
+]
+
+# Optional but nice
+license = { text = "MIT" }
+keywords = ["materials", "density", "simulation"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/HugoR4uch/tartine"
