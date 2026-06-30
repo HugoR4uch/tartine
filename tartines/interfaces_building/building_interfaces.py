@@ -24,10 +24,6 @@ import interface_builder
 import water_adder
 import substrate_builder
 
-importlib.reload(interface_builder)
-importlib.reload(water_adder)
-importlib.reload(substrate_builder)
-
 
 #Section: Building the substrates
 
@@ -72,11 +68,11 @@ intersubstrate_gap=50
 water_substrate_gap = 2
 substrate_dir = 'substrates'
 optimise_interface= True #Optimize the entire interface (as opposed to just the water in the slab)
-freeze_whole_substrate = True #When optimising interface, should the whole substrate be frozen?
+only_freeze_substrate_bottom_half = True #When optimising interface, should the whole substrate be frozen?
 enforce_physicality = False 
 logfile = False 
 
-interface_builder.interface_multi_builder(substrate_dir,water_thickness,intersubstrate_gap,water_substrate_gap,optimise_interface=optimise_interface,logfile = logfile,enforce_physicality = enforce_physicality,freeze_whole_substrate=freeze_whole_substrate)
+interface_builder.interface_multi_builder(substrate_dir,water_thickness,intersubstrate_gap,water_substrate_gap,optimise_interface=optimise_interface,logfile = logfile,enforce_physicality = enforce_physicality,only_freeze_substrate_bottom_half=True)
 
 
 #Section: Visualizing the interfaces

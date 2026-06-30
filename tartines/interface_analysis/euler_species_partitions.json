@@ -1,0 +1,68 @@
+{
+  "old_four_state_partitioning": {
+    "chemisorbed": {
+      "z_bounds": null,
+      "pitch_bounds": [0.0, 90.0],
+      "roll_bounds": [0.0, 45.0]
+    },
+    "bridged": {
+      "z_bounds": null,
+      "pitch_bounds": [90.0, 180.0],
+      "roll_bounds": [0.0, 45.0]
+    },
+    "H-up": {
+      "z_bounds": null,
+      "pitch_bounds": [0.0, 90.0],
+      "roll_bounds": [45.0, 90.0]
+    },
+    "H-down": {
+      "z_bounds": null,
+      "pitch_bounds": [90.0, 180.0],
+      "roll_bounds": [45.0, 90.0]
+    }
+  },
+  "salt_species_partitioning": {
+    "chemisorbed": {
+      "z_bounds": null,
+      "pitch_bounds": [0.0, 90.0],
+      "roll_bounds": [0.0, 45.0]
+    },
+    "bridged": {
+      "z_bounds": null,
+      "pitch_bounds": [90.0, 180.0],
+      "roll_bounds": [0.0, 45.0]
+    },
+    "H-up": {
+      "z_bounds": null,
+      "pitch_bounds": [0.0, 90.0],
+      "roll_bounds": [45.0, 90.0]
+    },
+    "H-down": {
+      "z_bounds": null,
+      "pitch_bounds": [90.0, 180.0],
+      "roll_bounds": [45.0, 90.0]
+    }
+  },
+  "metals_species_partitioning": {
+    "chemisorbed": {
+      "z_bounds": null,
+      "pitch_bounds": [0.0, 90.0],
+      "roll_bounds": [0.0, 45.0]
+    },
+    "bridged": {
+      "z_bounds": null,
+      "pitch_bounds": [90.0, 180.0],
+      "roll_bounds": [0.0, 45.0]
+    },
+    "H-up": {
+      "z_bounds": null,
+      "pitch_bounds": [0.0, 90.0],
+      "roll_bounds": [45.0, 90.0]
+    },
+    "H-down": {
+      "z_bounds": null,
+      "pitch_bounds": [90.0, 180.0],
+      "roll_bounds": [45.0, 90.0]
+    }
+  }
+}

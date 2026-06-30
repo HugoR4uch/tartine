@@ -130,7 +130,7 @@ def make_thermodynamics_plot(name,logfile_paths,T_target,equilib_end_frame=0,end
     Temp_std_vals = []
 
     if len(logfile_paths) == 1:
-        fig, ax = plt.subplots(1,2,figsize=(8, 8),sharex=True,sharey=False)
+        fig, ax = plt.subplots(1,2,figsize=(12, 4*num_traj),sharex=True,sharey=False)
         logfile = logfile_paths[0]
         data = np.loadtxt(logfile,skiprows=1)
         #Giving Title to the first row
@@ -325,6 +325,95 @@ def plot_density_vs_AIMD(O_bin_centers,
     plt.close()
 
 
+def plot_all_trajectory_density_profiles(name,
+                                         trajectories,
+                                         substrate,
+                                         z_min=-1,
+                                         z_max=30,
+                                         num_layers=None,
+                                         all_traj_density_figures_dir='./all_traj_density_figures',
+                                         species='O',
+                                         plot_name=None):
+    """
+    Plot density profiles for each trajectory independently in subplots with shared y-axis.
+    
+    Parameters
+    ----------
+    name : str
+        System identifier
+    trajectories : list
+        List of ASE trajectory objects
+    substrate : ase.Atoms
+        Substrate structure
+    z_min : float
+        Minimum z-coordinate for plotting
+    z_max : float
+        Maximum z-coordinate for plotting
+    num_layers : int, optional
+        Number of substrate layers to consider
+    all_traj_density_figures_dir : str
+        Directory to save figures
+    species : str
+        Atom species to analyze ('O' or 'H')
+    plot_name : str, optional
+        Display name for plots
+    """
+    
+    if not os.path.exists(all_traj_density_figures_dir):
+        os.makedirs(all_traj_density_figures_dir)
+    
+    if plot_name is None:
+        plot_name = name
+    
+    # Get individual trajectory density profiles
+    bin_centers, all_densities = interface_analysis_tools.get_z_density_profile(
+        trajectories,
+        substrate,
+        z_min=z_min,
+        z_max=z_max,
+        plot_all_profiles=True,
+        num_layers=num_layers,
+        species=species
+    )
+    
+    n_trajectories = len(all_densities)
+    max_density = np.max(all_densities) * 1.2
+    
+    # Create subplots
+    n_cols = 3
+    n_rows = (n_trajectories + n_cols - 1) // n_cols
+    
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4*n_rows), sharey=True)
+    axes = axes.flatten()
+    
+    # Plot each trajectory
+    for traj_idx, density in enumerate(all_densities):
+        ax = axes[traj_idx]
+        ax.plot(bin_centers, density, linewidth=2, color='steelblue')
+        ax.fill_between(bin_centers, density, alpha=0.3, color='steelblue')
+        ax.set_xlabel(r'Distance From Interface z [$\AA$]')
+        ax.set_ylabel(r'Density [$gcm^{-3}$]')
+        ax.set_title(f'Trajectory {traj_idx + 1}', fontsize=18)
+        ax.grid(True, alpha=0.3)
+        ax.set_xlim([z_min, z_max])
+        ax.set_ylim([0, max_density])
+    
+    # Hide unused subplots
+    for idx in range(n_trajectories, len(axes)):
+        axes[idx].set_visible(False)
+    
+    fig.suptitle(f'{plot_name} - Individual Trajectory {species} Density Profiles', fontsize=20)
+    plt.tight_layout()
+    
+    filename = os.path.join(all_traj_density_figures_dir, f'{name}_all_trajectories_density_vs_z.png')
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f'Saved: {filename}')
+
+
+
+
 
 def multi_gen_density_plot(
                     current_O_bin_centers,
@@ -336,6 +425,7 @@ def multi_gen_density_plot(
                     equilib_end_frame = 4000,
                     plot_name=None,
                     z_plot_max=None,
+                    plot_legend=True,
                     ):
     
     if plot_name is None:
@@ -398,7 +488,8 @@ def multi_gen_density_plot(
     
     plt.plot(current_O_bin_centers,current_O_average_density,label = name_of_this_gen)
     plt.xlim([0, 20]) if z_plot_max is None else plt.xlim([0, z_plot_max])
-    plt.legend()
+    if plot_legend:
+        plt.legend()
     plt.grid()
     plt.xlabel(r'Distance From Interface z [$\AA$]')
     plt.ylabel(r'Water Density [$gcm^{-3}$]')
@@ -541,6 +632,332 @@ def plot_contact_layer_z_density(name,
     plt.close()
 
 
+def plot_species_resolved_density_profiles(
+    name,
+    profiles,
+    figures_dir="./",
+    plot_name=None,
+    z_plot_max=10,
+    plot_species_sum=True,
+    O_contact_layer_start=None,
+    O_contact_layer_end=None,
+    species_z_bounds=None,
+    partition_name=None,
+    density_ylim=None,
+):
+    """Plot default and custom Euler-species resolved rho(z) profiles."""
+
+    if not os.path.exists(figures_dir):
+        os.makedirs(figures_dir)
+
+    if plot_name is None:
+        plot_name = name
+
+    plt.figure(figsize=(8, 6))
+
+    all_profile = profiles["all"]
+    plt.plot(
+        all_profile["z"],
+        all_profile["density"],
+        color="black",
+        linewidth=2.5,
+        label="All water O",
+    )
+
+    max_density = np.max(all_profile["density"])
+
+    for species_name, species_profile in profiles["species"].items():
+        plt.plot(
+            species_profile["z"],
+            species_profile["density"],
+            linewidth=2,
+            label=species_name,
+        )
+        species_max = np.max(species_profile["density"])
+        if species_max > max_density:
+            max_density = species_max
+
+    if plot_species_sum and "species_sum" in profiles:
+        species_sum = profiles["species_sum"]
+        plt.plot(
+            species_sum["z"],
+            species_sum["density"],
+            color="black",
+            linestyle="--",
+            linewidth=2,
+            label="Species sum",
+        )
+        sum_max = np.max(species_sum["density"])
+        if sum_max > max_density:
+            max_density = sum_max
+
+    if O_contact_layer_start is not None:
+        plt.axvline(
+            O_contact_layer_start,
+            color="grey",
+            linestyle=":",
+            linewidth=1.5,
+            label=f"Contact start: {O_contact_layer_start:.2f} Å",
+        )
+
+    if O_contact_layer_end is not None:
+        plt.axvline(
+            O_contact_layer_end,
+            color="grey",
+            linestyle="--",
+            linewidth=1.5,
+            label=f"Contact end: {O_contact_layer_end:.2f} Å",
+        )
+
+    title = f"{plot_name}: species-resolved water O density"
+    if partition_name is not None:
+        title += f"\n{partition_name}"
+    if species_z_bounds is not None:
+        title += f", species z = [{species_z_bounds[0]:.2f}, {species_z_bounds[1]:.2f}] Å"
+
+    plt.title(title)
+    plt.xlabel(r"Distance From Interface z [$\AA$]")
+    plt.ylabel(r"Density [$gcm^{-3}$]")
+    plt.xlim([0, z_plot_max])
+    plt.ylim([0, density_ylim if density_ylim is not None else max_density * 1.2])
+    plt.grid(alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+
+    filename = os.path.join(
+        figures_dir,
+        f"{name}_species_resolved_density_vs_z.png",
+    )
+    plt.savefig(filename, dpi=300, bbox_inches="tight")
+    plt.close()
+
+
+def plot_contact_layer_xy_free_energy(
+    x_bins,
+    y_bins,
+    free_energy_xy,
+    filename=None,
+    title="Contact-layer F(u, v)",
+    plot_name=None,
+    z_bounds=None,
+    reference_z_bounds=None,
+    cmap="viridis",
+    vmin=None,
+    vmax=None,
+    primitive_cell=None,
+    origin_xy=None,
+    plot_cartesian=False,
+):
+    """
+    Plot a contact-layer in-plane free-energy map.
+
+    Parameters
+    ----------
+    x_bins, y_bins : array-like
+        Histogram bin edges. For current F(u,v) data these are primitive
+        fractional coordinates u and v.
+    free_energy_xy : array-like or masked array
+        Shifted F(u, v) in eV with shape (n_u_bins, n_v_bins).
+    filename : str, optional
+        Save path. If omitted, the figure is shown but not saved.
+    """
+
+    F_xy = np.ma.masked_invalid(np.ma.asarray(free_energy_xy, dtype=float))
+
+    finite_values = F_xy.compressed()
+    if finite_values.size == 0:
+        raise ValueError("free_energy_xy contains no finite values to plot")
+
+    if vmin is None:
+        vmin = float(np.nanpercentile(finite_values, 5))
+
+    if vmax is None:
+        vmax = float(np.nanpercentile(finite_values, 95))
+    
+    if np.isclose(vmin, vmax):
+        vmin = float(np.nanmin(finite_values))
+        vmax = float(np.nanmax(finite_values))
+
+    if plot_name is not None:
+        title = f"{plot_name}: contact-layer F(u, v)"
+
+    subtitle_parts = []
+    if z_bounds is not None:
+        subtitle_parts.append(f"contact z = {z_bounds[0]:.2f}-{z_bounds[1]:.2f} Å")
+    if reference_z_bounds is not None:
+        subtitle_parts.append(f"reference z = {reference_z_bounds[0]:.2f}-{reference_z_bounds[1]:.2f} Å")
+    if subtitle_parts:
+        title = title + "\n" + ", ".join(subtitle_parts)
+
+    fig, ax = plt.subplots(figsize=(7, 6), constrained_layout=True)
+
+    if plot_cartesian:
+        if primitive_cell is None:
+            raise ValueError("primitive_cell must be provided when plot_cartesian=True")
+
+        u_grid, v_grid = np.meshgrid(x_bins, y_bins, indexing="ij")
+        edge_frac = np.stack([u_grid, v_grid], axis=-1)
+        edge_xy = interface_analysis_tools.primitive_fractional_to_xy(
+            edge_frac.reshape(-1, 2),
+            primitive_cell,
+            origin_xy=origin_xy,
+        ).reshape(u_grid.shape + (2,))
+
+        mesh = ax.pcolormesh(
+            edge_xy[:, :, 0],
+            edge_xy[:, :, 1],
+            F_xy,
+            shading="auto",
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        ax.set_xlabel(r"$x$ [$\AA$]")
+        ax.set_ylabel(r"$y$ [$\AA$]")
+    else:
+        mesh = ax.pcolormesh(
+            x_bins,
+            y_bins,
+            F_xy.T,
+            shading="auto",
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        ax.set_xlabel("u")
+        ax.set_ylabel("v")
+
+    ax.set_title(title)
+    ax.set_aspect("equal", adjustable="box")
+    fig.colorbar(mesh, ax=ax, label=r"$F(u,v)$ [eV]")
+
+    if filename is not None:
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        fig.savefig(filename, dpi=300, bbox_inches="tight")
+
+    plt.close(fig)
+
+
+def plot_top_layer_xy_motion_transform(
+    trajectories,
+    substrate,
+    filename=None,
+    stride=10,
+    num_layers=None,
+    tolerance=0.1,
+    account_for_substrate_xy_motion=True,
+    title=None,
+):
+    """
+    Plot raw and transformed substrate top-layer xy coordinates.
+
+    This is a diagnostic for the substrate-motion correction used by
+    get_xy_free_energy_profile. The transform is fitted using only top-layer
+    substrate atoms.
+    """
+    if len(trajectories) > 0 and hasattr(trajectories[0], "get_positions"):
+        trajectories = [trajectories]
+
+    top_layer_indices = interface_analysis_tools.find_top_layer_indices(
+        substrate,
+        num_layers=num_layers,
+        tolerance=tolerance,
+    )
+
+    primitive_cell, origin_shift = interface_analysis_tools.get_substrate_primitive_cell_data(
+        substrate,
+    )
+    origin_xy = origin_shift[:2]
+
+    raw_xy = []
+    transformed_xy = []
+    transformed_uv = []
+
+    for trajectory in trajectories:
+        if len(trajectory) == 0:
+            continue
+
+        reference_top_layer_xy = trajectory[0].positions[top_layer_indices, :2]
+
+        for frame in trajectory[::stride]:
+            raw_positions = frame.positions[top_layer_indices]
+            raw_xy.append(raw_positions[:, :2])
+
+            if account_for_substrate_xy_motion:
+                transformed_positions = interface_analysis_tools._align_sample_positions_to_top_layer_xy(
+                    frame,
+                    top_layer_indices,
+                    top_layer_indices,
+                    reference_top_layer_xy,
+                )
+            else:
+                transformed_positions = raw_positions.copy()
+
+            transformed_xy.append(transformed_positions[:, :2])
+            transformed_frac = interface_analysis_tools.xy_to_primitive_fractional(
+                transformed_positions[:, :2],
+                primitive_cell,
+                origin_xy=origin_xy,
+            )
+            transformed_uv.append(transformed_frac)
+
+    if len(raw_xy) == 0:
+        raise ValueError("No trajectory frames available for top-layer xy diagnostic")
+
+    raw_xy = np.vstack(raw_xy)
+    transformed_xy = np.vstack(transformed_xy)
+    transformed_uv = np.vstack(transformed_uv)
+
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5), constrained_layout=True)
+
+    axes[0].scatter(raw_xy[:, 0], raw_xy[:, 1], s=8, alpha=0.25, edgecolors="none")
+    axes[1].scatter(
+        transformed_xy[:, 0],
+        transformed_xy[:, 1],
+        s=8,
+        alpha=0.25,
+        edgecolors="none",
+    )
+    axes[2].scatter(
+        transformed_uv[:, 0],
+        transformed_uv[:, 1],
+        s=8,
+        alpha=0.25,
+        edgecolors="none",
+    )
+
+    axes[0].set_title("Raw top-layer xy")
+    axes[1].set_title("Aligned top-layer xy")
+    axes[2].set_title("Aligned top-layer unwrapped uv")
+
+    all_xy = np.vstack([raw_xy, transformed_xy])
+    x_pad = 0.05 * max(np.ptp(all_xy[:, 0]), 1.0)
+    y_pad = 0.05 * max(np.ptp(all_xy[:, 1]), 1.0)
+    xlim = (float(np.min(all_xy[:, 0]) - x_pad), float(np.max(all_xy[:, 0]) + x_pad))
+    ylim = (float(np.min(all_xy[:, 1]) - y_pad), float(np.max(all_xy[:, 1]) + y_pad))
+
+    for ax in axes[:2]:
+        ax.set_xlabel(r"$x$ [$\AA$]")
+        ax.set_ylabel(r"$y$ [$\AA$]")
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.set_aspect("equal", adjustable="box")
+        ax.grid(alpha=0.25)
+
+    axes[2].set_xlabel("u")
+    axes[2].set_ylabel("v")
+    axes[2].set_aspect("equal", adjustable="box")
+    axes[2].grid(alpha=0.25)
+
+    if title is not None:
+        fig.suptitle(title)
+
+    if filename is not None:
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        fig.savefig(filename, dpi=300, bbox_inches="tight")
+
+    plt.close(fig)
+
 
 
 
@@ -593,12 +1010,22 @@ def get_dissociation_statistics(trajectories, substrate, z_min, z_max,sampling_i
             interfacial_water_O_indices = [i for i in analyser.aqua_O_indices if i in interface_indices]
 
             interfacial_voronoi_dict = {i: voronoi_dict[i] for i in interfacial_water_O_indices}
+            
+
+            frame_OH_indices = []
+            frame_H_indices = []
+            frame_O_indices = []
+            frame_H3O_indices = []
 
             for i in interfacial_water_O_indices:
                 coordination = len(interfacial_voronoi_dict[i])
 
+                if coordination == 0:
+                    frame_O_indices.append(i)
+                    print('O atom {i} has no H atoms attached in frame {frame}')
                 
                 if coordination == 1:
+                    frame_OH_indices.append(i)
                     OH_count+=1
                     if OH_O_atoms_dict.get(frame_count*sampling_interval) is None:
                         OH_O_atoms_dict[frame_count*sampling_interval] = []
@@ -608,6 +1035,7 @@ def get_dissociation_statistics(trajectories, substrate, z_min, z_max,sampling_i
                 if coordination == 2:
                     H2O_count+=1
                 if coordination == 3:
+                    frame_H3O_indices.append(i)
                     H3O_count+=1
                     if H3O_O_atoms_dict.get(frame_count*sampling_interval) is None:
                         H3O_O_atoms_dict[frame_count*sampling_interval] = []
@@ -623,11 +1051,20 @@ def get_dissociation_statistics(trajectories, substrate, z_min, z_max,sampling_i
                     substrate_H_atoms_dict[frame_count*sampling_interval].append(voronoi_dict[i][0])
                     substrate_H_count += coordination
                 if coordination > 1: 
-                    raise ValueError(f"Substrate atom {i} has {coordination} H atoms on it: {voronoi_dict[i]}")
+                    if substrate_H_atoms_dict.get(frame_count*sampling_interval) is None:
+                        substrate_H_atoms_dict[frame_count*sampling_interval] = []
+                    substrate_H_count += coordination
+                    substrate_H_atoms_dict[frame_count*sampling_interval].extend(voronoi_dict[i])
+                    print(f"WARNING: Substrate atom {i} has {coordination} H atoms on it: {voronoi_dict[i]}")
 
             if OH_count != substrate_H_count:
+                if substrate_H_atoms_dict.get(frame_count*sampling_interval) is None:
+                        substrate_H_atoms_dict[frame_count*sampling_interval] = []
                 print(f"Frame {frame_count*sampling_interval}: OH- count ({OH_count}) does not match substrate H count ({substrate_H_count}).")
+                print(f"H indices: {substrate_H_atoms_dict[frame_count*sampling_interval]}")
+                print(f"OH indices:{frame_OH_indices}")
                 print("Interface Indices:", interface_indices)
+                print()
 
             if substrate_H_atoms_dict.get(frame_count*sampling_interval) is not None:
                 if OH_O_atoms_dict.get(frame_count*sampling_interval) is None:
@@ -674,8 +1111,6 @@ def get_dissociation_statistics(trajectories, substrate, z_min, z_max,sampling_i
 
 
     return all_traj_OH_populations, all_traj_H2O_populations, all_traj_H3O_populations, all_traj_substrate_H_populations, all_traj_times
-
-
 
 
 
@@ -827,6 +1262,17 @@ def plot_dissociation_statistics(name,
 
 
 
+# def plot_angular_distributions(
+#                         name,
+#                         substrate,
+#                         trajectories,
+#                         O_z_min,
+#                         O_z_max,
+#                         sampling_interval=20,
+#                         z_sampling_increment = 0.05,
+#                         num_cos_bins=100,
+#                         save_results = True,
+#                         ):
+    
 
-
-
+#     pass

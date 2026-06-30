@@ -19,6 +19,9 @@ from ase.md import MDLogger
 from ase.io import read, write
 import time
 
+from mace.calculators import MACECalculator
+
+
 
 
 class BindingCurveAnalyser:
@@ -391,15 +394,18 @@ class BindingCurveMaker:
                  substrate_name=None,
                  adsorp_element=None,
                  z_approach_vals=None,
-                 
+                 vacuum_width = 50.0,
                  ):
+        
+
+        self.vacuum_width = vacuum_width
         self.calc_dir = calc_dir
         self.substrate_name=substrate_name
 
         self.substrate = ase.io.read(substrate_file,format='proteindatabank')
         self.substrate.set_pbc([True,True,True])
         substrate_cell = np.array(self.substrate.cell)
-        substrate_cell[2][2] =+ 50
+        substrate_cell[2][2] += vacuum_width
         self.substrate.set_cell(substrate_cell)
         angle = 14.5 /180 * np.pi
         self.water = ase.Atoms('H2O', positions=np.array([[0,-0.95,0],[0.95*np.cos(angle),0.95*np.sin(angle),0],[0,0,0]]))
@@ -419,7 +425,7 @@ class BindingCurveMaker:
             self.z_approach_vals = z_approach
         
         
-        self.vacuum_width = 15.0
+        self.vacuum_width = self.vacuum_width
         self.binding_configs = []
         self.n_atoms = len(self.substrate)
 
@@ -677,9 +683,7 @@ class MACEBindingCurveMaker(BindingCurveMaker):
             raise ValueError('No binding configurations loaded.')
         # self.binding_configs = self.make_binding_curve_atoms()
 
-
-        from mace.calculators.foundations_models import mace_mp
-        calculator = mace_mp(model=self.model,  dispersion=True, device='cuda')
+        calculator = MACECalculator(model_path=self.model,device='cuda')
 
         for i,config in enumerate(self.binding_configs):
             system_calculator = copy.deepcopy(calculator) # otherwise calculator stores energy of water

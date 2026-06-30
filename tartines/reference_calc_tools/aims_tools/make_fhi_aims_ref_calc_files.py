@@ -49,8 +49,8 @@ def make_ref_calc_files(trajectory_dirs : Dict[str,str],
                         adjust_cell = True,
                         time_hrs=1.5,
                         basis_sets_dir='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/fhi-aims/fhi-aims.240920_2/species_defaults/defaults_2020/light',
-                        default_control_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/reference_calc_tools/config_files/control_default.in',
-                        default_slurm_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/reference_calc_tools/config_files/run_fhi_aims_DFT_ARCHER2.slurm',
+                        default_control_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/tartines/reference_calc_tools/config_files/control_default.in',
+                        default_slurm_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/tartines/reference_calc_tools/config_files/run_fhi_aims_DFT_ARCHER2.slurm',
                         budget_allocation='e05-surfin-mic',
                         qos='standard',
                         num_tasks=128,
@@ -120,11 +120,10 @@ def make_ref_calc_files(trajectory_dirs : Dict[str,str],
             #Loading trajectories
             trajectories = []
             traj_names = []
-            first_sampled_frame_indices = []
 
             for i,traj_name in enumerate(dirs):
 
-                print(f"  Loading trajectory: {traj_name}")
+                print(f"Loading trajectory: {traj_name}")
                 traj_dir = simulation_runs_dir + '/' + traj_name
 
                 #Handling traj loading for system names without a miller index
@@ -150,8 +149,7 @@ def make_ref_calc_files(trajectory_dirs : Dict[str,str],
             for i in range(len(trajectories)):
                 print(len(trajectories[i]))
                 equilib_end_frame = int(  equilibration_fraction * len(trajectories[i]) ) 
-                trajectories[i] = trajectories[i][equilib_end_frame:]
-                first_sampled_frame_indices.append(equilib_end_frame)
+                trajectories[i] = trajectories[i][equilib_end_frame:] 
 
 
             #Making ref calc dirs for sampled frames
@@ -202,8 +200,10 @@ def make_ref_calc_files(trajectory_dirs : Dict[str,str],
                         frame.set_cell(new_cell)
 
 
+
+                    
                     print('cell: ', frame.cell)
-                    ase.io.write(frame_calc_dir + f"/{frame_name}.xyz",frame,format='xyz')
+                    ase.io.write(frame_calc_dir + f"/{frame_name}.xyz",frame,format='extxyz')
 
 
                     #Creating FHI-AIMS geometry.in and control.in and SLURM submission file
@@ -252,8 +252,8 @@ def make_isolated_atom_ref_calc_dirs(elements,calc_dir='./isolated_atom_ref_calc
         fhi_aims_input_file_tools.make_FHI_AIMS_calc_dir(atom,
                                                     atom_calc_dir,
                                                     time_hrs=0.333,
-                                                    default_control_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/reference_calc_tools/config_files/control_default.in',
-                                                    default_slurm_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/reference_calc_tools/config_files/run_fhi_aims_DFT_ARCHER2.slurm',
+                                                    default_control_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/tartines/reference_calc_tools/config_files/control_default.in',
+                                                    default_slurm_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/tartines/reference_calc_tools/config_files/run_fhi_aims_DFT_ARCHER2.slurm',
                                                     project_name=f"{element}",
                                                     qos='short',
                                                     n_tasks=1, #only one thread as VERY few basis functions

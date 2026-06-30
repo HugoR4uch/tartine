@@ -10,8 +10,8 @@ def make_FHI_AIMS_calc_dir( atoms,
                             calculation_dir,
                             time_hrs,
                             basis_sets_dir='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/fhi-aims/fhi-aims.240920_2/species_defaults/defaults_2020/light',
-                            default_control_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/reference_calc_tools/config_files/control_default.in',
-                            default_slurm_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/reference_calc_tools/config_files/run_fhi_aims_DFT_ARCHER2.slurm',
+                            default_control_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/tartines/reference_calc_tools/config_files/control_default.in',
+                            default_slurm_file_path='/home/hr492/michaelides-share/hr492/Projects/tartine_project/software/tartines/tartines/reference_calc_tools/config_files/run_fhi_aims_DFT_ARCHER2.slurm',
                             project_name='project',
                             qos='short',
                             n_tasks=128,
@@ -189,7 +189,15 @@ def create_FHI_AIMS_control_file(new_input_file_path,
     return 
 
 
-def create_fhi_aims_ARCHER2_slurm_file(calculation_dir,time_hrs,project_name,default_slurm_file_path,qos='standard',n_tasks=128,num_nodes=1,budget_allocation='e05-surfin-mic',partition='standard'):
+def create_fhi_aims_ARCHER2_slurm_file(
+    calculation_dir,
+    time_hrs,project_name,
+    default_slurm_file_path,
+    qos='standard',
+    n_tasks=128,
+    num_nodes=1,
+    budget_allocation='e05-surfin-mic',
+    partition='standard'):
     """
     Creates a SLURM batch script for running FHI-aims on the ARCHER2 supercomputer.
 

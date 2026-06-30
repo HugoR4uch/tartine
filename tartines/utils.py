@@ -13,6 +13,37 @@ def _parse_meta_value(s):
         return s
 
 def load_density_profile_data(path):
+    """
+        Load a density profile file consisting of a metadata header and
+        tabulated z–density data.
+
+        The first line of the file contains metadata in the form:
+            key:value;key:value;...
+
+        Expected metadata fields include:
+        - contact_layer_start: <float>
+        - contact_layer_end: <float>
+        - peaks: [z1 z2 ...]
+        - troughs: [z1 z2 ...]
+        - v_1: [ax ay az]    # lattice vector 1
+        - v_2: [bx by bz]    # lattice vector 2
+        - v_3: [cx cy cz]    # lattice vector 3
+
+        All bracketed values are parsed as NumPy arrays.
+        Scalar numeric values are parsed as floats.
+
+        Returns
+        -------
+        meta : dict
+            Parsed metadata fields with proper Python types.
+        z : np.ndarray
+            z-coordinates.
+        O_density : np.ndarray
+            Oxygen density profile.
+        H_density : np.ndarray
+            Hydrogen density profile.
+    """
+
     with open(path) as f:
         meta_line = f.readline().strip()
         meta = {}

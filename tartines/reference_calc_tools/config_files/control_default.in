@@ -2,7 +2,10 @@
   xc            revPBE
   spin          none
   relativistic  atomic_zora scalar
-  d3
+  d3 damping=zero
+ 
+
+override_kgrid_checks .true.
 
 sc_iter_limit <INSERT:scf_limit>
 

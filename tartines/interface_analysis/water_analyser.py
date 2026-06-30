@@ -15,8 +15,8 @@ class Analyser:
                  frame,
                  substrate_indices=None,
                  r_OO_c = 3.5,
-                 r_OH_c = 2.4,
-                 theta_c = 120):
+                 r_OH_c = 2.5,
+                 theta_c = 30):
         
 
         self.frame = frame
@@ -196,7 +196,7 @@ class Analyser:
         H_atom_indices = voronoi_dict[water_O_index]
 
         if len(H_atom_indices) != 2:
-            raise ValueError(f"Water molecule with O index {water_O_index} does not have 2 H atoms in its voronoi region. It has {len(H_atom_indices)} H atoms.")
+            return None
         
         OH1_vec = self.frame.get_distances(water_O_index,H_atom_indices[0],mic=True,vector=True)[0]
         OH2_vec = self.frame.get_distances(water_O_index,H_atom_indices[1],mic=True,vector=True)[0]
@@ -204,6 +204,8 @@ class Analyser:
 
         normalised_dip_vec =  dipole_vector / np.linalg.norm(dipole_vector)
         return normalised_dip_vec
+    
+
     
     def get_water_euler_angles(self,water_O_indices=None):
 
@@ -283,23 +285,29 @@ class Analyser:
 
         v_1 = self.frame.get_distances(O_D_index,H_index,mic=True,vector=True) [0]
         v_2 = self.frame.get_distances(O_D_index,O_A_index,mic=True,vector=True) [0]
-        v_3 = self.frame.get_distances(H_index,O_A_index,mic=True,vector=True) [0]
+        v_3 = self.frame.get_distances(O_A_index,H_index,mic=True,vector=True) [0]
         
         r_HO = np.linalg.norm(v_3) #H - Acceptor
         r_OH = np.linalg.norm(v_1) # Donor - H
-        r_OO = np.linalg.norm(v_2)
+        r_OO = np.linalg.norm(v_2) # Donor - Acceptor
 
         # Returns False if O_D is not the donor
         if r_HO < r_OH:
             return False
 
-        cos_theta = np.dot(v_3,-v_1) / (np.linalg.norm(v_1) * np.linalg.norm(v_3))
+        # cos_theta = np.dot(v_3,-v_1) / (np.linalg.norm(v_1) * np.linalg.norm(v_3)) # original broken definition
+
+        # I use the definition given by Luzar and Chandler, in: https://doi.org/10.1063/1.464521
+        
+        cos_theta = np.dot(v_1,v_2) / (np.linalg.norm(v_1) * np.linalg.norm(v_2))
+
 
 
         cos_theta_c = np.cos(self.theta_c * np.pi / 180)
 
-    
-        return r_OH < self.r_OH_c and cos_theta < cos_theta_c and r_OO < self.r_OO_c
+        
+        
+        return r_HO < self.r_OH_c and cos_theta > cos_theta_c and r_OO < self.r_OO_c 
 
     
     

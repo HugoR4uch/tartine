@@ -7,13 +7,18 @@ import copy
 class WaterAdder:
 
     
-    def __init__(self,init_structure,water_box_vectors):
+    def __init__(self,init_structure,water_box_vectors=None):
         #mindist r_.. values taken from Xavi's code
         self.structure = copy.deepcopy(init_structure)
         #Adding tags to atoms
         self.structure.set_tags(np.arange(0,len(self.structure),1))
 
+        if water_box_vectors is None:
+            water_box_vectors = np.array(self.structure.cell)
+    
         self.water_box_vectors = water_box_vectors # ndarray of 3 arrays. each array -> water box primitive vectors
+    
+    
     def remove_atoms(self,indices):
         del self.structure[indices]
     

@@ -25,15 +25,20 @@ def bulk_interface_multi_builder(
                             optimise_interfacial_water=True,
                             substrates_whitelist=None,
                             substrates_blacklist=None,
+                            freeze_mode_dict={}
                             ):
     
-    input_filenames = os.listdir(substrate_dir)
 
+    input_filenames = os.listdir(substrate_dir)
 
     for filename in input_filenames:
 
-
         interface_name = filename.split('.')[0]
+
+        if interface_name in freeze_mode_dict:
+            freeze_mode=freeze_mode_dict[interface_name]
+        else:
+            freeze_mode='half'
 
         if substrates_whitelist is not None:
             if interface_name not in substrates_whitelist:
@@ -81,6 +86,7 @@ def bulk_interface_multi_builder(
             start_time = time.time()
             interface_builder.build_bulk_interface(water_substrate_gap=water_substrate_gap,
                                                    optimise_interfacial_water=optimise_interfacial_water,
+                                                   freeze_mode=freeze_mode,
                                                    )
             end_time = time.time()
 
@@ -214,7 +220,7 @@ class InterfaceBuilder:
                              optimiser = BFGS,
                              optimise_interfacial_water=True,
                              optimise_water_before_adding=False,
-                             only_freeze_substrate_bottom_half=False,
+                             freeze_mode='half',
                              ):
     
         
@@ -241,7 +247,7 @@ class InterfaceBuilder:
         if optimise_interfacial_water:
             optimised_interface = self.optimise_interfacial_water(new_substrate,
                                                                   optimiser=optimiser,
-                                                                  only_freeze_substrate_bottom_half=only_freeze_substrate_bottom_half
+                                                                  freeze_mode=freeze_mode
                                                                   )
 
 
@@ -367,7 +373,8 @@ class InterfaceBuilder:
                                    input_interface,
                                    optimiser=BFGS,
                                    max_steps=1000,
-                                   only_freeze_substrate_bottom_half=False):
+                                   freeze_mode='half',
+                                   f=False):
         
 
         interface = copy.deepcopy(input_interface)
@@ -379,18 +386,22 @@ class InterfaceBuilder:
         num_interface_atoms = len(input_interface)
         substrate_atom_indices = np.arange(0,num_substrate_atoms,1) 
         interface_atom_indices = np.arange(0,num_interface_atoms,1)
-        
-        
-        c = FixAtoms(indices=substrate_atom_indices)
+        substrate_atom_z_coords = self.substrate.positions[:,2]
+        median_z_coord = np.median(substrate_atom_z_coords)
+        substrate_bottom_half_indices = [atom.index for atom in input_interface if atom.position[2] < median_z_coord]
 
-        if only_freeze_substrate_bottom_half: 
-            substrate_atom_z_coords = self.substrate.positions[:,2]
-            interface_atom_z_coords = self.substrate.positions[:,2]
-            median_z_coord = np.median(substrate_atom_z_coords)
-            isin_substrate_bottom_half_mask = [coord <= median_z_coord for coord in interface_atom_z_coords]
-            substrate_bottom_half_indices = interface_atom_indices[isin_substrate_bottom_half_mask]
+
+        if freeze_mode=='half': 
+            print('Freezing bottom half of substrate')
             c = FixAtoms(indices=substrate_bottom_half_indices)
-    
+        
+        elif freeze_mode=='full':
+            print('Freezing whole substrate')
+            c = FixAtoms(indices=substrate_atom_indices)
+
+
+        elif freeze_mode is None:
+            c=None
 
         #Freezing substrate
         interface.set_constraint(c)

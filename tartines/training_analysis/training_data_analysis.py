@@ -28,7 +28,7 @@ class TrainingDataAnalyser:
         self.isolated_atoms = {'IsolatedAtoms':{}}
         self.training_set = {}
         self.test_set = {}
-
+ 
     
     def frame_multi_loader(self,
                            group_name,
@@ -83,7 +83,6 @@ class TrainingDataAnalyser:
 
 
 
-
     def load_training_frames(self,
                              training_frames_dir,
                              selection_fraction=1.0,
@@ -102,6 +101,10 @@ class TrainingDataAnalyser:
 
         If loading isolated atoms, each calc directory name must be the atomic symbol, e.g. 'Si'
         """
+
+        print('Loading training frames from:',training_frames_dir)
+        
+        
 
 
         # These stats will be printed at the end
@@ -131,26 +134,36 @@ class TrainingDataAnalyser:
 
         ref_calc_dirs = os.listdir(training_frames_dir)
 
+        print('Selection fraction',selection_fraction)
+        print('Number of ref calc dirs:',len(ref_calc_dirs))
         if selection_fraction < 1.0:
             
+            print(f'Selecting {selection_fraction*100}% of frames using {selection_type} selection')
+
             num_selected_calcs = int(len(ref_calc_dirs) * selection_fraction)
             if num_selected_calcs == 0:
                 raise Exception('WARNING: No frames selected! Selection fraction is too low!')
-
             
 
             if selection_type == 'interval':
                 # Selecting every nth frame
+                
                 selected_ref_calc_dirs = ref_calc_dirs[::int(1/selection_fraction)]
+                print('Interval selection completed')
             elif selection_type == 'random':
                 # Randomly selecting a fraction of frames
+                
                 selected_ref_calc_dirs = np.random.choice(ref_calc_dirs, num_selected_calcs, replace=False)
-        
+                print('Random selection completed')
+
         else:
             # Selecting all frames
+            print('Selecting all frames')
             selected_ref_calc_dirs = ref_calc_dirs
 
-            
+        print('Original number of frames:', len(ref_calc_dirs))
+        print(f'Loading {len(selected_ref_calc_dirs)} frames for system {system_name}')
+
         for frame_name in selected_ref_calc_dirs:
 
             print('loading calc for:',frame_name)
